@@ -24,6 +24,7 @@ import com.ward.hospital.repository.UserRepository;
 import com.ward.hospital.security.UserPrincipal;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -96,7 +97,7 @@ public class AppointmentService {
         return AppointmentResponse.from(appointment);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public AppointmentResponse create(AppointmentCreateRequest request, UserPrincipal actor) {
         requireScheduler(actor);
         LocalDateTime start = normalizeStart(request.startTime());
@@ -130,7 +131,7 @@ public class AppointmentService {
         return AppointmentResponse.from(appointment);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public AppointmentResponse reschedule(Long id, RescheduleRequest request, UserPrincipal actor) {
         requireScheduler(actor);
         Appointment appointment = getDetailed(id);

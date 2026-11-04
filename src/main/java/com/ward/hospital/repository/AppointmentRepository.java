@@ -72,6 +72,10 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     long countByStatusAndDoctorIdAndStartTimeBetween(AppointmentStatus status, Long doctorId,
                                                      LocalDateTime from, LocalDateTime to);
 
+    long countByStatusAndStartTimeAfter(AppointmentStatus status, LocalDateTime time);
+
+    long countByStatusAndDoctorIdAndStartTimeAfter(AppointmentStatus status, Long doctorId, LocalDateTime time);
+
     long countByPatientId(Long patientId);
 
     long countByServiceId(Long serviceId);
