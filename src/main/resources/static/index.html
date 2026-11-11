@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b2530">
+  <meta name="description" content="MedFlow — управление пациентами, расписанием врачей и записями на приём">
+  <title>MedFlow — медицинская информационная система</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <section id="login-screen" class="login-screen">
+    <div class="login-hero">
+      <div class="login-hero-inner">
+        <div class="brand brand-light">
+          <span class="brand-mark">
+            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <path d="M5 17h5l2.4-6 4.2 12 2.8-7H27" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="3" y="3" width="26" height="26" rx="8" stroke="currentColor" stroke-width="1.6" opacity=".45"/>
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <strong>MedFlow</strong>
+            <small>Clinic Management System</small>
+          </span>
+        </div>
+
+        <div class="hero-content">
+          <span class="hero-badge">Медицинская информационная система</span>
+          <h1>Порядок в расписании.<br>Забота в каждом приёме.</h1>
+          <p class="hero-lead">
+            Единое пространство для администраторов, регистраторов и врачей:
+            пациенты, расписание, запись на приём и аналитика клиники.
+          </p>
+          <ul class="hero-features">
+            <li>
+              <span class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+              </span>
+              <span><strong>Умное расписание</strong><small>Слоты врачей без накладок и двойных записей</small></span>
+            </li>
+            <li>
+              <span class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+              </span>
+              <span><strong>Карточки пациентов</strong><small>История визитов, услуги и стоимость лечения</small></span>
+            </li>
+            <li>
+              <span class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+              </span>
+              <span><strong>Отчёты и контроль</strong><small>Нагрузка врачей, выручка и статистика приёмов</small></span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="hero-preview" aria-hidden="true">
+          <div class="preview-header">
+            <span>Сегодня в клинике</span>
+            <span class="live-dot">Онлайн</span>
+          </div>
+          <div class="preview-stats">
+            <div><strong>18</strong><span>приёмов</span></div>
+            <div><strong>7</strong><span>врачей</span></div>
+            <div><strong>94%</strong><span>загрузка</span></div>
+          </div>
+          <div class="preview-row">
+            <span class="preview-time">09:30</span>
+            <span class="preview-avatar">АС</span>
+            <span class="preview-name">Анна Соколова<small>Кардиология · каб. 201</small></span>
+            <span class="preview-status">Подтверждён</span>
+          </div>
+          <div class="preview-row">
+            <span class="preview-time">10:00</span>
+            <span class="preview-avatar preview-avatar-alt">МО</span>
+            <span class="preview-name">Михаил Орлов<small>Терапия · каб. 118</small></span>
+            <span class="preview-status preview-status-wait">Ожидается</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="login-panel">
+      <div class="login-card">
+        <div class="login-card-head">
+          <span class="login-kicker">Добро пожаловать</span>
+          <h2>Вход в систему</h2>
+          <p>Используйте учётную запись, выданную администратором клиники.</p>
+        </div>
+
+        <form id="login-form" novalidate>
+          <div class="field">
+            <label for="login-username">Логин</label>
+            <div class="input-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <input id="login-username" name="username" class="input" autocomplete="username" placeholder="Например, doctor.ivanov" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="login-password">Пароль</label>
+            <div class="input-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+              <input id="login-password" name="password" type="password" class="input" autocomplete="current-password" placeholder="Введите пароль" required>
+              <button type="button" id="toggle-password" class="input-action" aria-label="Показать пароль">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div id="login-error" class="form-alert hidden" role="alert"></div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg" id="login-submit">
+            <span>Войти в систему</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </form>
+
+        <div class="demo-block">
+          <div class="demo-head">
+            <span>Демо-доступы</span>
+            <small>нажмите, чтобы подставить</small>
+          </div>
+          <div class="demo-grid">
+            <button type="button" class="demo-account" data-username="admin" data-password="Admin123!">
+              <span class="demo-role demo-role-admin">А</span>
+              <span><strong>Администратор</strong><small>admin / Admin123!</small></span>
+            </button>
+            <button type="button" class="demo-account" data-username="reception" data-password="Reception123!">
+              <span class="demo-role demo-role-reception">Р</span>
+              <span><strong>Регистратор</strong><small>reception / Reception123!</small></span>
+            </button>
+            <button type="button" class="demo-account" data-username="doctor.ivanov" data-password="Doctor123!">
+              <span class="demo-role demo-role-doctor">В</span>
+              <span><strong>Врач</strong><small>doctor.ivanov / Doctor123!</small></span>
+            </button>
+          </div>
+        </div>
+
+        <p class="login-footnote">
+          Защищённое соединение · Spring Security · BCrypt
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <div id="app" class="app hidden">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-head">
+        <div class="brand brand-light">
+          <span class="brand-mark">
+            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <path d="M5 17h5l2.4-6 4.2 12 2.8-7H27" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="3" y="3" width="26" height="26" rx="8" stroke="currentColor" stroke-width="1.6" opacity=".45"/>
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <strong>MedFlow</strong>
+            <small>Clinic Management</small>
+          </span>
+        </div>
+        <button id="sidebar-close" class="icon-btn sidebar-close" aria-label="Закрыть меню">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="sidebar-label">Рабочее пространство</div>
+      <nav id="nav" class="nav" aria-label="Основная навигация"></nav>
+
+      <div class="sidebar-bottom">
+        <div class="sidebar-status">
+          <span class="health-dot" id="health-dot"></span>
+          <div><strong id="health-text">Проверка системы</strong><small>API и база данных</small></div>
+        </div>
+        <div class="sidebar-version">MedFlow v1.0 · 2026</div>
+      </div>
+    </aside>
+
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+    <div class="main">
+      <header class="topbar">
+        <button id="menu-toggle" class="icon-btn menu-toggle" aria-label="Открыть меню">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <div class="topbar-title">
+          <div class="breadcrumbs" id="breadcrumbs">MedFlow · Рабочее пространство</div>
+          <h1 id="page-title">Дашборд</h1>
+          <p id="page-subtitle"></p>
+        </div>
+        <div class="topbar-actions">
+          <a href="/swagger-ui.html" target="_blank" rel="noopener" class="topbar-link" title="Документация REST API">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+            <span>API</span>
+          </a>
+          <div class="user-menu">
+            <button id="user-button" class="user-button" aria-haspopup="true" aria-expanded="false">
+              <span id="user-avatar" class="avatar">?</span>
+              <span class="user-button-copy">
+                <strong id="user-name">Пользователь</strong>
+                <small id="user-role">Роль</small>
+              </span>
+              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div id="user-dropdown" class="dropdown hidden">
+              <div class="dropdown-head">
+                <span id="dropdown-avatar" class="avatar avatar-lg">?</span>
+                <div><strong id="dropdown-name">Пользователь</strong><small id="dropdown-role">Роль</small></div>
+              </div>
+              <div class="dropdown-sep"></div>
+              <button id="logout-button" class="dropdown-item dropdown-item-danger">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>
+                Выйти из системы
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main id="view" class="view" aria-live="polite"></main>
+
+      <footer class="app-footer">
+        <span>MedFlow · Hospital Appointment &amp; Medical Administration System</span>
+        <span id="footer-date"></span>
+      </footer>
+    </div>
+  </div>
+
+  <div id="modal-root"></div>
+  <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+  <noscript>
+    <div class="noscript">Для работы MedFlow необходим включённый JavaScript.</div>
+  </noscript>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

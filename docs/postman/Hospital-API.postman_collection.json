@@ -1,0 +1,1148 @@
+{
+  "info": {
+    "_postman_id": "df4c1ef0-6f9e-4b5e-9a8e-6d4d0e1c2a10",
+    "name": "MedFlow — Hospital API",
+    "description": "Готовая коллекция для REST API MedFlow.\n\nПорядок работы:\n1. Запустите приложение (demo или mysql) на http://localhost:8080.\n2. Выполните папку «00 · Авторизация»: CSRF → вход администратора → проверка сессии → обновление CSRF.\n3. Выполняйте остальные папки по порядку. Postman сам хранит cookie сессии.\n4. Переменные created* заполняются тестами из ответов; менять их вручную не нужно.\n\nДля демонстрации используется администратор admin / Admin123!. Логин и пароль можно изменить в переменных коллекции.\n\nПримечание: создание врача в папке 02 нужно выполнить до добавления расписания в папке 03. Время записи рассчитывается на ближайший понедельник через две недели, поэтому пример не конфликтует с демо-данными.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 · Авторизация",
+      "description": "Получение CSRF-токена, вход, проверка текущего пользователя. Cookie сессии Postman сохраняет автоматически.",
+      "item": [
+        {
+          "name": "CSRF-токен",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('токен присутствует', () => {",
+                  "  pm.expect(body.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(body.headerName).to.eql('X-XSRF-TOKEN');",
+                  "});",
+                  "pm.collectionVariables.set('csrfToken', body.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/csrf",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "csrf"]
+            },
+            "description": "Возвращает JSON { headerName, token } и устанавливает cookie XSRF-TOKEN. Токен сохраняется в переменную csrfToken."
+          }
+        },
+        {
+          "name": "Вход администратора",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('роль ADMIN', () => pm.expect(body.role).to.eql('ADMIN'));",
+                  "pm.test('сессия создана', () => pm.expect(pm.cookies.has('JSESSIONID')).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Вход по логину и паролю. Требует CSRF-заголовок из предыдущего запроса."
+          }
+        },
+        {
+          "name": "Текущий пользователь",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('есть имя пользователя', () => pm.expect(pm.response.json().username).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Проверяет, что cookie сессии подхватилась. Возвращает id, username, fullName, role, doctorId."
+          }
+        },
+        {
+          "name": "CSRF-токен после входа",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('csrfToken', body.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/csrf",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "csrf"]
+            },
+            "description": "Обновляет CSRF-токен после смены идентификатора сессии при входе. Выполните перед изменяющими запросами."
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 · Пациенты",
+      "description": "CRUD пациентов. Доступ: ADMIN, RECEPTIONIST.",
+      "item": [
+        {
+          "name": "Список пациентов",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('ответ — массив', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients?query=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "patients"],
+              "query": [{ "key": "query", "value": "", "description": "ФИО, телефон или email" }]
+            },
+            "description": "Поиск по ФИО, телефону и email. Параметр query необязателен."
+          }
+        },
+        {
+          "name": "Создать пациента",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('есть id и fullName', () => {",
+                  "  pm.expect(body.id).to.be.a('number');",
+                  "  pm.expect(body.fullName).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.collectionVariables.set('createdPatientId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Ирина\",\n  \"lastName\": \"Постманова\",\n  \"birthDate\": \"1992-06-18\",\n  \"gender\": \"FEMALE\",\n  \"phone\": \"+7 (916) 555-20-10\",\n  \"email\": \"i.postmanova@example.com\",\n  \"address\": \"Москва, ул. Тестовая, 7\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/patients",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "patients"]
+            },
+            "description": "Создаёт пациента и сохраняет его id в createdPatientId."
+          }
+        },
+        {
+          "name": "Карточка пациента",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('id совпадает', () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('createdPatientId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/{{createdPatientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "patients", "{{createdPatientId}}"]
+            },
+            "description": "Читает пациента, созданного предыдущим запросом."
+          }
+        },
+        {
+          "name": "Обновить пациента",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('телефон обновлён', () => pm.expect(pm.response.json().phone).to.eql('+7 (916) 555-20-11'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Ирина\",\n  \"lastName\": \"Постманова\",\n  \"birthDate\": \"1992-06-18\",\n  \"gender\": \"FEMALE\",\n  \"phone\": \"+7 (916) 555-20-11\",\n  \"email\": \"i.postmanova@example.com\",\n  \"address\": \"Москва, ул. Тестовая, 8\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/{{createdPatientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "patients", "{{createdPatientId}}"]
+            },
+            "description": "Полная замена полей карточки. Телефон и адрес изменены."
+          }
+        },
+        {
+          "name": "Удалить пациента",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/{{createdPatientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "patients", "{{createdPatientId}}"]
+            },
+            "description": "Удаляет созданного пациента без истории приёмов. Пациент с записями вернёт 409 Conflict."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 · Врачи и специализации",
+      "description": "Чтение врачей и специализаций, создание и изменение. Запись доступна только ADMIN.",
+      "item": [
+        {
+          "name": "Список специализаций",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/specializations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "specializations"]
+            }
+          }
+        },
+        {
+          "name": "Создать специализацию",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('createdSpecializationId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Постмановая терапия {{$timestamp}}\",\n  \"description\": \"Специализация для проверки REST API\",\n  \"active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/specializations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "specializations"]
+            },
+            "description": "Название уникально за счёт динамической переменной {{$timestamp}}."
+          }
+        },
+        {
+          "name": "Обновить специализацию",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Постмановая терапия {{$timestamp}}\",\n  \"description\": \"Обновлённое описание\",\n  \"active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/specializations/{{createdSpecializationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "specializations", "{{createdSpecializationId}}"]
+            }
+          }
+        },
+        {
+          "name": "Удалить специализацию",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204 No Content', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/specializations/{{createdSpecializationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "specializations", "{{createdSpecializationId}}"]
+            },
+            "description": "Удаляет созданную специализацию. Если к ней привязан врач, вернётся 409 Conflict."
+          }
+        },
+        {
+          "name": "Список врачей",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors"]
+            }
+          }
+        },
+        {
+          "name": "Создать врача",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('есть doctorId', () => pm.expect(body.id).to.be.a('number'));",
+                  "pm.collectionVariables.set('createdDoctorId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Павел\",\n  \"lastName\": \"Постманов\",\n  \"specializationId\": 1,\n  \"email\": \"doctor.postman.{{$timestamp}}@example.com\",\n  \"phone\": \"+7 (495) 000-00-00\",\n  \"office\": \"310\",\n  \"bio\": \"Врач, созданный через Postman\",\n  \"username\": \"doctor.postman.{{$timestamp}}\",\n  \"password\": \"Doctor123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors"]
+            },
+            "description": "Создаёт профиль врача и связанную учётную запись. Логин и email уникальны благодаря {{$timestamp}}."
+          }
+        },
+        {
+          "name": "Карточка врача",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/{{createdDoctorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors", "{{createdDoctorId}}"]
+            },
+            "description": "Читает созданного врача."
+          }
+        },
+        {
+          "name": "Обновить врача",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('кабинет обновлён', () => pm.expect(pm.response.json().office).to.eql('311'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Павел\",\n  \"lastName\": \"Постманов\",\n  \"specializationId\": 1,\n  \"email\": \"doctor.postman.{{$timestamp}}@example.com\",\n  \"phone\": \"+7 (495) 000-00-01\",\n  \"office\": \"311\",\n  \"bio\": \"Кабинет изменён через REST API\",\n  \"active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/{{createdDoctorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors", "{{createdDoctorId}}"]
+            },
+            "description": "Обновляет профиль. Логин и пароль здесь не меняются."
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 · Расписание и доступность",
+      "description": "Смены врача и расчёт свободных слотов. Создание/изменение расписания — только ADMIN. Создайте врача в папке 02 перед запуском этих запросов.",
+      "item": [
+        {
+          "name": "Расписание врача",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/{{doctorId}}/schedules",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors", "{{doctorId}}", "schedules"]
+            },
+            "description": "Недельные смены кардиолога (doctorId = 1)."
+          }
+        },
+        {
+          "name": "Добавить смену",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('createdScheduleId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dayOfWeek\": \"SUNDAY\",\n  \"startTime\": \"09:00:00\",\n  \"endTime\": \"13:00:00\",\n  \"slotMinutes\": 30,\n  \"active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/{{createdDoctorId}}/schedules",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors", "{{createdDoctorId}}", "schedules"]
+            },
+            "description": "Добавляет воскресную смену новому врачу. Одна смена на день недели, шаг 10–120 минут."
+          }
+        },
+        {
+          "name": "Изменить смену",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dayOfWeek\": \"SUNDAY\",\n  \"startTime\": \"10:00:00\",\n  \"endTime\": \"14:00:00\",\n  \"slotMinutes\": 30,\n  \"active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/{{createdScheduleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "{{createdScheduleId}}"]
+            },
+            "description": "Сдвигает смену на 10:00–14:00."
+          }
+        },
+        {
+          "name": "Удалить смену",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204 No Content', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/{{createdScheduleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "{{createdScheduleId}}"]
+            },
+            "description": "Удаляет только что созданную смену. Если в это время есть записи, сервер вернёт 409 Conflict."
+          }
+        },
+        {
+          "name": "Свободные слоты",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('есть рабочий день и слоты', () => {",
+                  "  pm.expect(body.workingDay).to.be.true;",
+                  "  pm.expect(body.slots).to.be.an('array').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/{{doctorId}}/availability?date={{bookingDate}}&serviceId={{serviceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors", "{{doctorId}}", "availability"],
+              "query": [
+                { "key": "date", "value": "{{bookingDate}}", "description": "yyyy-MM-dd" },
+                { "key": "serviceId", "value": "{{serviceId}}", "description": "длительность услуги" }
+              ]
+            },
+            "description": "Дата bookingDate рассчитывается коллекцией как следующий понедельник + 2 недели. Для переноса можно передать excludeAppointmentId."
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 · Записи на приём",
+      "description": "Журнал, создание, проверка конфликта, перенос и отмена. Доступ на запись: ADMIN, RECEPTIONIST.",
+      "item": [
+        {
+          "name": "Журнал записей",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments"]
+            },
+            "description": "Поддерживает фильтры from, to, doctorId, patientId, status, query."
+          }
+        },
+        {
+          "name": "Создать запись",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('статус SCHEDULED', () => pm.expect(body.status).to.eql('SCHEDULED'));",
+                  "pm.test('цена зафиксирована', () => pm.expect(body.price).to.be.a('number'));",
+                  "pm.collectionVariables.set('createdAppointmentId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": {{doctorId}},\n  \"patientId\": {{patientId}},\n  \"serviceId\": {{serviceId}},\n  \"startTime\": \"{{bookingDate}}T15:00:00\",\n  \"notes\": \"Запись из Postman\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments"]
+            },
+            "description": "Бронирует 15:00 у кардиолога. Время входит в смену 09:00–17:00 и выровнено по 30-минутным слотам."
+          }
+        },
+        {
+          "name": "Повторная запись на занятый слот (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('сообщение о конфликте', () => pm.expect(pm.response.json().message).to.be.a('string').and.not.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": {{doctorId}},\n  \"patientId\": {{patientId}},\n  \"serviceId\": {{serviceId}},\n  \"startTime\": \"{{bookingDate}}T15:00:00\",\n  \"notes\": \"Проверка защиты от двойной записи\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments"]
+            },
+            "description": "Негативный сценарий: тот же интервал должен вернуть 409, а не создать вторую запись."
+          }
+        },
+        {
+          "name": "Карточка записи",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/{{createdAppointmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments", "{{createdAppointmentId}}"]
+            }
+          }
+        },
+        {
+          "name": "Перенести запись",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('время изменено', () => pm.expect(pm.response.json().startTime).to.include('15:30:00'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startTime\": \"{{bookingDate}}T15:30:00\",\n  \"notes\": \"Перенос на полчаса позже\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/{{createdAppointmentId}}/reschedule",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments", "{{createdAppointmentId}}", "reschedule"]
+            },
+            "description": "Перенос проверяет новый интервал, исключая саму запись из конфликта."
+          }
+        },
+        {
+          "name": "Отменить запись",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('статус CANCELLED', () => pm.expect(pm.response.json().status).to.eql('CANCELLED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Пациент перенёс визит\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/{{createdAppointmentId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments", "{{createdAppointmentId}}", "cancel"]
+            },
+            "description": "После отмены слот снова становится доступным для записи. Завершение приёма доступно только после наступления времени приёма."
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 · Медицинские услуги",
+      "description": "Прайс услуг. Чтение — все авторизованные, изменение — ADMIN.",
+      "item": [
+        {
+          "name": "Список услуг",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "services"]
+            }
+          }
+        },
+        {
+          "name": "Создать услугу",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('createdServiceId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Постмановая диагностика {{$timestamp}}\",\n  \"description\": \"Услуга для проверки REST API\",\n  \"price\": 1750.00,\n  \"durationMinutes\": 30,\n  \"active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "services"]
+            }
+          }
+        },
+        {
+          "name": "Обновить услугу",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('цена обновлена', () => pm.expect(pm.response.json().price).to.eql(1900));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Постмановая диагностика {{$timestamp}}\",\n  \"description\": \"Обновлённая услуга\",\n  \"price\": 1900.00,\n  \"durationMinutes\": 30,\n  \"active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{createdServiceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "services", "{{createdServiceId}}"]
+            }
+          }
+        },
+        {
+          "name": "Удалить услугу",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204 No Content', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{createdServiceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "services", "{{createdServiceId}}"]
+            },
+            "description": "Удаляет созданную услугу. Услуга с историей приёмов не удаляется (409 Conflict)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 · Отчёты и служебные",
+      "description": "Аналитика, дашборд, health-check и OpenAPI. Отчёты доступны ADMIN и RECEPTIONIST.",
+      "item": [
+        {
+          "name": "Отчёт за текущий месяц",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('есть summary, byDoctor, byService, daily', () => {",
+                  "  pm.expect(body.summary).to.be.an('object');",
+                  "  pm.expect(body.byDoctor).to.be.an('array');",
+                  "  pm.expect(body.byService).to.be.an('array');",
+                  "  pm.expect(body.daily).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports?from={{reportFrom}}&to={{reportTo}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports"],
+              "query": [
+                { "key": "from", "value": "{{reportFrom}}", "description": "yyyy-MM-dd" },
+                { "key": "to", "value": "{{reportTo}}", "description": "yyyy-MM-dd" }
+              ]
+            },
+            "description": "Даты reportFrom/reportTo вычисляются коллекцией как первый и последний день текущего месяца."
+          }
+        },
+        {
+          "name": "Дашборд",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard"]
+            },
+            "description": "Для врача данные ограничиваются его приёмами, для ADMIN/RECEPTIONIST — всей клиникой."
+          }
+        },
+        {
+          "name": "Health-check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('приложение и БД доступны', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql('UP');",
+                  "  pm.expect(body.database).to.eql('UP');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Публичный health-check приложения и базы данных."
+          }
+        },
+        {
+          "name": "OpenAPI JSON",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('это OpenAPI 3', () => pm.expect(pm.response.json().openapi).to.match(/^3\\./));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v3/api-docs",
+              "host": ["{{baseUrl}}"],
+              "path": ["v3", "api-docs"]
+            },
+            "description": "Машинно-читаемая спецификация API. Swagger UI доступен по адресу /swagger-ui/index.html."
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 · Выход",
+      "description": "Завершение сессии. Выполняйте последним.",
+      "item": [
+        {
+          "name": "Выйти",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204 No Content', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Инвалидирует сессию и удаляет cookie JSESSIONID."
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const pad = value => String(value).padStart(2, '0');",
+          "const format = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;",
+          "",
+          "// Следующий понедельник + 14 дней: гарантированно будущий рабочий день кардиолога.",
+          "const booking = new Date();",
+          "let addDays = (1 - booking.getDay() + 7) % 7;",
+          "if (addDays === 0) { addDays = 7; }",
+          "booking.setDate(booking.getDate() + addDays + 14);",
+          "pm.collectionVariables.set('bookingDate', format(booking));",
+          "",
+          "// Текущий календарный месяц для отчёта.",
+          "const now = new Date();",
+          "const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);",
+          "const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);",
+          "pm.collectionVariables.set('reportFrom', format(firstDay));",
+          "pm.collectionVariables.set('reportTo', format(lastDay));"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "adminUsername", "value": "admin" },
+    { "key": "adminPassword", "value": "Admin123!" },
+    { "key": "csrfToken", "value": "" },
+    { "key": "doctorId", "value": "1" },
+    { "key": "patientId", "value": "1" },
+    { "key": "serviceId", "value": "4" },
+    { "key": "createdPatientId", "value": "" },
+    { "key": "createdSpecializationId", "value": "" },
+    { "key": "createdDoctorId", "value": "" },
+    { "key": "createdScheduleId", "value": "" },
+    { "key": "createdAppointmentId", "value": "" },
+    { "key": "createdServiceId", "value": "" },
+    { "key": "bookingDate", "value": "" },
+    { "key": "reportFrom", "value": "" },
+    { "key": "reportTo", "value": "" }
+  ]
+}
