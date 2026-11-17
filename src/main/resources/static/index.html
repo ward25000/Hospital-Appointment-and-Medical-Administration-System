@@ -85,11 +85,16 @@
       <div class="login-card">
         <div class="login-card-head">
           <span class="login-kicker">Добро пожаловать</span>
-          <h2>Вход в систему</h2>
-          <p>Используйте учётную запись, выданную администратором клиники.</p>
+          <h2>MedFlow</h2>
+          <p>Войдите в систему или создайте личный кабинет пациента.</p>
         </div>
 
-        <form id="login-form" novalidate>
+        <div class="auth-mode" role="tablist" aria-label="Режим входа">
+          <button type="button" id="auth-login-tab" class="is-active" data-auth-mode="login" role="tab" aria-selected="true">Вход</button>
+          <button type="button" id="auth-register-tab" data-auth-mode="register" role="tab" aria-selected="false">Регистрация пациента</button>
+        </div>
+
+        <form id="login-form" class="auth-form is-active" novalidate>
           <div class="field">
             <label for="login-username">Логин</label>
             <div class="input-wrap">
@@ -116,6 +121,61 @@
           </button>
         </form>
 
+        <form id="register-form" class="auth-form register-form" novalidate>
+          <div class="form-grid">
+            <div class="field">
+              <label for="register-username">Логин *</label>
+              <input id="register-username" name="username" class="input" autocomplete="username" maxlength="60" placeholder="Например, anna.patient" required>
+            </div>
+            <div class="field">
+              <label for="register-password">Пароль *</label>
+              <input id="register-password" name="password" type="password" class="input" autocomplete="new-password" minlength="8" maxlength="100" placeholder="Не менее 8 символов" required>
+            </div>
+            <div class="field">
+              <label for="register-iin">ИИН *</label>
+              <input id="register-iin" name="iin" class="input" inputmode="numeric" maxlength="12" pattern="\d{12}" placeholder="12 цифр" required>
+            </div>
+            <div class="field">
+              <label for="register-phone">Телефон *</label>
+              <input id="register-phone" name="phone" class="input" type="tel" maxlength="30" placeholder="+7 (916) 100-10-01" required>
+            </div>
+            <div class="field">
+              <label for="register-firstName">Имя *</label>
+              <input id="register-firstName" name="firstName" class="input" maxlength="80" required>
+            </div>
+            <div class="field">
+              <label for="register-lastName">Фамилия *</label>
+              <input id="register-lastName" name="lastName" class="input" maxlength="80" required>
+            </div>
+            <div class="field">
+              <label for="register-birthDate">Дата рождения *</label>
+              <input id="register-birthDate" name="birthDate" type="date" class="input" required>
+            </div>
+            <div class="field">
+              <label for="register-gender">Пол *</label>
+              <select id="register-gender" name="gender" class="select" required>
+                <option value="FEMALE">Женский</option>
+                <option value="MALE">Мужской</option>
+              </select>
+            </div>
+            <div class="field span-2">
+              <label for="register-email">Email</label>
+              <input id="register-email" name="email" type="email" class="input" maxlength="160" placeholder="patient@example.com">
+            </div>
+            <div class="field span-2">
+              <label for="register-address">Адрес проживания *</label>
+              <input id="register-address" name="address" class="input" maxlength="300" placeholder="Город, улица, дом, квартира" required>
+            </div>
+          </div>
+
+          <div id="register-error" class="form-alert hidden" data-form-alert role="alert"></div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg" id="register-submit">
+            <span>Создать личный кабинет</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </form>
+
         <div class="demo-block">
           <div class="demo-head">
             <span>Демо-доступы</span>
@@ -133,6 +193,10 @@
             <button type="button" class="demo-account" data-username="doctor.ivanov" data-password="Doctor123!">
               <span class="demo-role demo-role-doctor">В</span>
               <span><strong>Врач</strong><small>doctor.ivanov / Doctor123!</small></span>
+            </button>
+            <button type="button" class="demo-account" data-username="patient.demo" data-password="Patient123!">
+              <span class="demo-role demo-role-patient">П</span>
+              <span><strong>Пациент</strong><small>patient.demo / Patient123!</small></span>
             </button>
           </div>
         </div>

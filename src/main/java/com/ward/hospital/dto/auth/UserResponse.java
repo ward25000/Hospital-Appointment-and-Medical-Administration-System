@@ -9,7 +9,8 @@ public record UserResponse(
         String fullName,
         Role role,
         String roleLabel,
-        Long doctorId
+        Long doctorId,
+        Long patientId
 ) {
 
     public static UserResponse from(UserPrincipal principal) {
@@ -19,7 +20,8 @@ public record UserResponse(
                 principal.getFullName(),
                 principal.getRole(),
                 principal.getRole().getLabel(),
-                principal.getDoctorId()
+                principal.getDoctorId(),
+                principal.getPatientId()
         );
     }
 }

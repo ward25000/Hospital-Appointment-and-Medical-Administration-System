@@ -8,6 +8,8 @@ import java.time.Period;
 
 public record PatientResponse(
         Long id,
+        String iin,
+        Long userId,
         String firstName,
         String lastName,
         String fullName,
@@ -23,6 +25,8 @@ public record PatientResponse(
     public static PatientResponse from(Patient patient) {
         return new PatientResponse(
                 patient.getId(),
+                patient.getIin(),
+                patient.getUser() == null ? null : patient.getUser().getId(),
                 patient.getFirstName(),
                 patient.getLastName(),
                 patient.getFullName(),

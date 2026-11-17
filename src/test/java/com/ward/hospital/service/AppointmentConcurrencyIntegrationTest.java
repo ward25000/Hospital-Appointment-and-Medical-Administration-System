@@ -100,8 +100,8 @@ class AppointmentConcurrencyIntegrationTest {
                 "doctor-" + suffix + "@example.com", "+7 (900) 000-00-01", "101"));
         scheduleRepository.save(new DoctorSchedule(doctor, workingDate.getDayOfWeek(),
                 LocalTime.of(9, 0), LocalTime.of(17, 0), 30));
-        patient = patientRepository.save(new Patient("Пациент", "Конкурентный",
-                LocalDate.of(1990, 5, 15), Gender.MALE, "+7 (916) 555-44-33", null, null));
+        patient = patientRepository.save(new Patient("000000000201", "Пациент", "Конкурентный",
+                LocalDate.of(1990, 5, 15), Gender.MALE, "+7 (916) 555-44-33", null, "Москва"));
         service = medicalServiceRepository.save(new MedicalService(
                 "Консультация " + suffix, null, new BigDecimal("2500.00"), 30));
         adminPrincipal = UserPrincipal.from(admin, null);

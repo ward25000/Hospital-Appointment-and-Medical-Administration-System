@@ -11,6 +11,10 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 
 public record PatientRequest(
+        @NotBlank(message = "Укажите ИИН")
+        @Pattern(regexp = "\\d{12}", message = "ИИН должен содержать 12 цифр")
+        String iin,
+
         @NotBlank(message = "Укажите имя пациента")
         @Size(max = 80, message = "Имя не должно превышать 80 символов")
         String firstName,
@@ -34,6 +38,7 @@ public record PatientRequest(
         @Size(max = 160, message = "Email слишком длинный")
         String email,
 
+        @NotBlank(message = "Укажите адрес проживания")
         @Size(max = 300, message = "Адрес не должен превышать 300 символов")
         String address
 ) {

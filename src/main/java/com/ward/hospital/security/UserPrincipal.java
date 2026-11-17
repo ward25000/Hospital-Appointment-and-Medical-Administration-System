@@ -17,20 +17,31 @@ public class UserPrincipal implements UserDetails {
     private final String fullName;
     private final Role role;
     private final Long doctorId;
+    private final Long patientId;
     private final boolean enabled;
 
     public UserPrincipal(Long id, String username, String password, String fullName,
                          Role role, Long doctorId, boolean enabled) {
+        this(id, username, password, fullName, role, doctorId, null, enabled);
+    }
+
+    public UserPrincipal(Long id, String username, String password, String fullName,
+                         Role role, Long doctorId, Long patientId, boolean enabled) {
         this.id = id;
         this.username = username;
         this.password = password;
         this.fullName = fullName;
         this.role = role;
         this.doctorId = doctorId;
+        this.patientId = patientId;
         this.enabled = enabled;
     }
 
     public static UserPrincipal from(User user, Long doctorId) {
+        return from(user, doctorId, null);
+    }
+
+    public static UserPrincipal from(User user, Long doctorId, Long patientId) {
         return new UserPrincipal(
                 user.getId(),
                 user.getUsername(),
@@ -38,6 +49,7 @@ public class UserPrincipal implements UserDetails {
                 user.getFullName(),
                 user.getRole(),
                 doctorId,
+                patientId,
                 user.isEnabled()
         );
     }
@@ -58,6 +70,10 @@ public class UserPrincipal implements UserDetails {
         return doctorId;
     }
 
+    public Long getPatientId() {
+        return patientId;
+    }
+
     public boolean isAdmin() {
         return role == Role.ADMIN;
     }
@@ -68,6 +84,10 @@ public class UserPrincipal implements UserDetails {
 
     public boolean isReceptionist() {
         return role == Role.RECEPTIONIST;
+    }
+
+    public boolean isPatient() {
+        return role == Role.PATIENT;
     }
 
     @Override

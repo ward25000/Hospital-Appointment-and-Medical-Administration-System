@@ -9,6 +9,11 @@ import {
   todayISO,
   loadingState,
   errorState,
+  setButtonLoading,
+  clearFieldErrors,
+  showFormAlert,
+  applyFieldErrors,
+  formValue,
 } from './ui.js';
 import { store } from './store.js';
 import * as dashboardView from './views/dashboard.js';
@@ -19,6 +24,10 @@ import * as doctorsView from './views/doctors.js';
 import * as schedulesView from './views/schedules.js';
 import * as catalogView from './views/catalog.js';
 import * as reportsView from './views/reports.js';
+import * as patientProfileView from './views/patientProfile.js';
+import * as patientVisitsView from './views/patientVisits.js';
+import * as patientReferralsView from './views/patientReferrals.js';
+import * as referralInboxView from './views/referralInbox.js';
 
 const ROUTES = {
   dashboard: {
@@ -85,15 +94,48 @@ const ROUTES = {
     roles: ['ADMIN', 'RECEPTIONIST'],
     nav: 'reports',
   },
+  profile: {
+    title: 'Мой профиль',
+    subtitle: 'Персональные данные и контактная информация пациента',
+    breadcrumb: 'Личный кабинет',
+    module: patientProfileView,
+    roles: ['PATIENT'],
+    nav: 'profile',
+  },
+  visits: {
+    title: 'История посещений',
+    subtitle: 'Прошлые и предстоящие визиты к врачам',
+    breadcrumb: 'Личный кабинет',
+    module: patientVisitsView,
+    roles: ['PATIENT'],
+    nav: 'visits',
+  },
+  referrals: {
+    title: 'Мои направления',
+    subtitle: 'Электронные направления, выписанные во время приёмов',
+    breadcrumb: 'Личный кабинет',
+    module: patientReferralsView,
+    roles: ['PATIENT'],
+    nav: 'referrals',
+  },
+  'referral-inbox': {
+    title: 'Входящие направления',
+    subtitle: 'Направления от коллег, ожидающие вашей реакции',
+    breadcrumb: 'Рабочее место врача',
+    module: referralInboxView,
+    roles: ['DOCTOR'],
+    nav: 'referral-inbox',
+  },
 };
 
 const NAV_GROUPS = [
   {
     label: 'Клиника',
     items: [
-      { route: 'dashboard', label: 'Дашборд', icon: 'dashboard' },
-      { route: 'calendar', label: 'Календарь', icon: 'calendar' },
-      { route: 'appointments', label: 'Записи', icon: 'appointments' },
+      { route: 'dashboard', label: 'Дашборд', icon: 'dashboard', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+      { route: 'calendar', label: 'Календарь', icon: 'calendar', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+      { route: 'appointments', label: 'Записи', icon: 'appointments', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+      { route: 'referral-inbox', label: 'Направления', icon: 'inbox', roles: ['DOCTOR'] },
     ],
   },
   {
@@ -106,6 +148,14 @@ const NAV_GROUPS = [
       { route: 'reports', label: 'Отчёты', icon: 'reports', roles: ['ADMIN', 'RECEPTIONIST'] },
     ],
   },
+  {
+    label: 'Личный кабинет',
+    items: [
+      { route: 'profile', label: 'Мой профиль', icon: 'profile', roles: ['PATIENT'] },
+      { route: 'visits', label: 'Мои визиты', icon: 'visits', roles: ['PATIENT'] },
+      { route: 'referrals', label: 'Мои направления', icon: 'referrals', roles: ['PATIENT'] },
+    ],
+  },
 ];
 
 const loginScreen = document.getElementById('login-screen');
@@ -115,6 +165,9 @@ const navElement = document.getElementById('nav');
 const loginForm = document.getElementById('login-form');
 const loginError = document.getElementById('login-error');
 const loginSubmit = document.getElementById('login-submit');
+const registerForm = document.getElementById('register-form');
+const registerError = document.getElementById('register-error');
+const registerSubmit = document.getElementById('register-submit');
 const userDropdown = document.getElementById('user-dropdown');
 const userButton = document.getElementById('user-button');
 const sidebar = document.getElementById('sidebar');
@@ -125,12 +178,16 @@ let routeToken = 0;
 let healthTimer = null;
 let sessionExpiredHandlerBound = false;
 
+function defaultRouteName() {
+  return store.user?.role === 'PATIENT' ? 'profile' : 'dashboard';
+}
+
 function parseRoute() {
   const raw = window.location.hash.replace(/^#\/?/, '');
   const [pathPart, queryPart] = raw.split('?');
   const segments = pathPart.split('/').filter(Boolean);
   return {
-    name: segments[0] || 'dashboard',
+    name: segments[0] || defaultRouteName(),
     params: new URLSearchParams(queryPart || ''),
   };
 }
@@ -145,8 +202,8 @@ function renderForbidden(config) {
       <div class="empty-state">
         <span class="empty-icon">${icon('shield')}</span>
         <strong>Раздел недоступен</strong>
-        <p>Ваша роль не позволяет открывать «${esc(config.title)}». Вернитесь на дашборд или обратитесь к администратору.</p>
-        <a class="btn btn-secondary btn-sm" href="#/dashboard">${icon('arrow-right')}<span>На дашборд</span></a>
+        <p>Ваша роль не позволяет открывать «${esc(config.title)}». Вернитесь в раздел по умолчанию или обратитесь к администратору.</p>
+        <a class="btn btn-secondary btn-sm" href="#/${defaultRouteName()}">${icon('arrow-right')}<span>На главную</span></a>
       </div>
     </div>
   `;
@@ -171,7 +228,7 @@ async function handleRoute() {
   const config = ROUTES[name];
 
   if (!config) {
-    window.location.hash = '#/dashboard';
+    window.location.hash = `#/${defaultRouteName()}`;
     return;
   }
 
@@ -267,7 +324,7 @@ function showApp(user) {
   setUserInterface(user);
   renderNav();
   if (!window.location.hash || window.location.hash === '#') {
-    history.replaceState(null, '', '#/dashboard');
+    history.replaceState(null, '', `#/${defaultRouteName()}`);
   }
   handleRoute();
   checkHealth();
@@ -281,6 +338,7 @@ function showLogin(message = '') {
   appElement.classList.add('hidden');
   loginScreen.classList.remove('hidden');
   document.title = 'Вход — MedFlow';
+  setAuthMode('login');
   if (message) {
     loginError.textContent = message;
     loginError.classList.remove('hidden');
@@ -319,9 +377,31 @@ function closeUserDropdown() {
   userButton.setAttribute('aria-expanded', 'false');
 }
 
+function setAuthMode(mode) {
+  const registering = mode === 'register';
+  document.querySelectorAll('[data-auth-mode]').forEach((button) => {
+    const active = button.dataset.authMode === mode;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+  loginForm.classList.toggle('is-active', !registering);
+  registerForm.classList.toggle('is-active', registering);
+  if (registering) {
+    loginError.classList.add('hidden');
+  } else {
+    registerError.classList.add('hidden');
+    registerError.textContent = '';
+  }
+}
+
 function bindLogin() {
+  document.querySelectorAll('[data-auth-mode]').forEach((button) => {
+    button.addEventListener('click', () => setAuthMode(button.dataset.authMode));
+  });
+
   document.querySelectorAll('.demo-account').forEach((button) => {
     button.addEventListener('click', () => {
+      setAuthMode('login');
       document.getElementById('login-username').value = button.dataset.username || '';
       document.getElementById('login-password').value = button.dataset.password || '';
       loginError.classList.add('hidden');
@@ -367,6 +447,35 @@ function bindLogin() {
     } finally {
       loginSubmit.disabled = false;
       loginSubmit.innerHTML = original;
+    }
+  });
+
+  registerForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    clearFieldErrors(registerForm);
+    setButtonLoading(registerSubmit, true, 'Создаём кабинет…');
+    const payload = {
+      username: formValue(registerForm, 'username'),
+      password: registerForm.elements.namedItem('password').value,
+      iin: formValue(registerForm, 'iin'),
+      firstName: formValue(registerForm, 'firstName'),
+      lastName: formValue(registerForm, 'lastName'),
+      birthDate: formValue(registerForm, 'birthDate'),
+      gender: formValue(registerForm, 'gender'),
+      phone: formValue(registerForm, 'phone'),
+      email: formValue(registerForm, 'email') || null,
+      address: formValue(registerForm, 'address'),
+    };
+    try {
+      const user = await api.auth.register(payload);
+      registerForm.reset();
+      toast(`Добро пожаловать, ${user.fullName.split(' ')[0]}`, 'success', 'Личный кабинет создан');
+      showApp(user);
+    } catch (error) {
+      showFormAlert(registerForm, getErrorMessage(error));
+      applyFieldErrors(registerForm, error?.fieldErrors);
+    } finally {
+      setButtonLoading(registerSubmit, false);
     }
   });
 }

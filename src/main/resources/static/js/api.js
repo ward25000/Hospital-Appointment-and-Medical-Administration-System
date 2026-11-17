@@ -117,6 +117,11 @@ const auth = {
     await ensureCsrf(true);
     return user;
   },
+  async register(data) {
+    const user = await send('/auth/register', { method: 'POST', body: data });
+    await ensureCsrf(true);
+    return user;
+  },
   async logout() {
     await send('/auth/logout', { method: 'POST' });
     resetCsrf();
@@ -142,6 +147,9 @@ const appointments = {
   },
   complete(id) {
     return send(`/appointments/${id}/complete`, { method: 'POST' });
+  },
+  noShow(id) {
+    return send(`/appointments/${id}/no-show`, { method: 'POST' });
   },
   cancel(id, reason) {
     return send(`/appointments/${id}/cancel`, { method: 'POST', body: { reason: reason || null } });
@@ -238,6 +246,33 @@ const reports = {
   },
 };
 
+const me = {
+  profile() {
+    return send('/me/profile');
+  },
+  updateProfile(data) {
+    return send('/me/profile', { method: 'PUT', body: data });
+  },
+  visits() {
+    return send('/me/visits');
+  },
+};
+
+const referrals = {
+  incoming(status) {
+    return send(`/referrals/incoming${buildQuery({ status })}`);
+  },
+  mine() {
+    return send('/referrals/mine');
+  },
+  create(data) {
+    return send('/referrals', { method: 'POST', body: data });
+  },
+  updateStatus(id, status) {
+    return send(`/referrals/${id}/status`, { method: 'PUT', body: { status } });
+  },
+};
+
 export const api = {
   auth,
   appointments,
@@ -247,6 +282,8 @@ export const api = {
   services,
   schedules,
   reports,
+  me,
+  referrals,
   dashboard() {
     return send('/dashboard');
   },

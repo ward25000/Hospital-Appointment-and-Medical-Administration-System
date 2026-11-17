@@ -4,13 +4,27 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "patients")
+@Table(name = "patients", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_patients_iin", columnNames = "iin"),
+        @UniqueConstraint(name = "uk_patients_user", columnNames = "user_id")
+})
 public class Patient extends BaseEntity {
+
+    @Column(name = "iin", nullable = false, length = 12)
+    private String iin;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @Column(name = "first_name", nullable = false, length = 80)
     private String firstName;
@@ -31,14 +45,15 @@ public class Patient extends BaseEntity {
     @Column(name = "email", length = 160)
     private String email;
 
-    @Column(name = "address", length = 300)
+    @Column(name = "address", nullable = false, length = 300)
     private String address;
 
     protected Patient() {
     }
 
-    public Patient(String firstName, String lastName, LocalDate birthDate, Gender gender,
+    public Patient(String iin, String firstName, String lastName, LocalDate birthDate, Gender gender,
                    String phone, String email, String address) {
+        this.iin = iin;
         this.firstName = firstName;
         this.lastName = lastName;
         this.birthDate = birthDate;
@@ -46,6 +61,22 @@ public class Patient extends BaseEntity {
         this.phone = phone;
         this.email = email;
         this.address = address;
+    }
+
+    public String getIin() {
+        return iin;
+    }
+
+    public void setIin(String iin) {
+        this.iin = iin;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     public String getFirstName() {

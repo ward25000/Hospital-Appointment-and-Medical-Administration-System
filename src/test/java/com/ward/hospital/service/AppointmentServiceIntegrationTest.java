@@ -126,8 +126,9 @@ class AppointmentServiceIntegrationTest {
         scheduleRepository.save(new DoctorSchedule(secondDoctor, workingDate.getDayOfWeek(),
                 LocalTime.of(9, 0), LocalTime.of(17, 0), 30));
 
-        patient = patientRepository.save(new Patient("Пациент", "Тестов", LocalDate.of(1990, 5, 15),
-                Gender.MALE, "+7 (916) 555-44-33", "patient@example.com", "Москва"));
+        patient = patientRepository.save(new Patient("000000000101", "Пациент", "Тестов",
+                LocalDate.of(1990, 5, 15), Gender.MALE, "+7 (916) 555-44-33",
+                "patient@example.com", "Москва"));
         shortService = medicalServiceRepository.save(new MedicalService(
                 "Консультация " + suffix, "Первичный приём", new BigDecimal("2500.00"), 30));
         longService = medicalServiceRepository.save(new MedicalService(
@@ -342,8 +343,8 @@ class AppointmentServiceIntegrationTest {
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("есть записи");
 
-        Patient freePatient = patientRepository.save(new Patient("Свободный", "Пациент",
-                LocalDate.of(1985, 1, 1), Gender.FEMALE, "+7 (916) 000-00-00", null, null));
+        Patient freePatient = patientRepository.save(new Patient("000000000102", "Свободный", "Пациент",
+                LocalDate.of(1985, 1, 1), Gender.FEMALE, "+7 (916) 000-00-00", null, "Москва"));
         patientService.delete(freePatient.getId());
         assertThat(patientRepository.existsById(freePatient.getId())).isFalse();
     }

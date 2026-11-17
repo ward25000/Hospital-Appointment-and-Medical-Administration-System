@@ -3,7 +3,8 @@ package com.ward.hospital.domain;
 public enum Role {
     ADMIN("Администратор"),
     DOCTOR("Врач"),
-    RECEPTIONIST("Регистратор");
+    RECEPTIONIST("Регистратор"),
+    PATIENT("Пациент");
 
     private final String label;
 

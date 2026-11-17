@@ -77,13 +77,17 @@ public class AppointmentService {
         if (actor.isDoctor()) {
             effectiveDoctorId = actor.getDoctorId();
         }
+        Long effectivePatientId = patientId;
+        if (actor.isPatient()) {
+            effectivePatientId = actor.getPatientId();
+        }
 
         String normalizedQuery = query == null || query.isBlank() ? null : query.trim();
         return appointmentRepository.search(
                         effectiveFrom.atStartOfDay(),
                         effectiveTo.plusDays(1).atStartOfDay(),
                         effectiveDoctorId,
-                        patientId,
+                        effectivePatientId,
                         status,
                         normalizedQuery)
                 .stream()
@@ -95,6 +99,19 @@ public class AppointmentService {
         Appointment appointment = getDetailed(id);
         checkViewAccess(appointment, actor);
         return AppointmentResponse.from(appointment);
+    }
+
+    public List<AppointmentResponse> findMyVisits(UserPrincipal actor) {
+        return appointmentRepository.search(
+                        LocalDateTime.now().minusYears(10),
+                        LocalDateTime.now().plusYears(10),
+                        null,
+                        actor.getPatientId(),
+                        null,
+                        null)
+                .stream()
+                .map(AppointmentResponse::from)
+                .toList();
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -180,6 +197,24 @@ public class AppointmentService {
     }
 
     @Transactional
+    public AppointmentResponse markNoShow(Long id, UserPrincipal actor) {
+        Appointment appointment = getDetailed(id);
+        if (appointment.getStatus() != AppointmentStatus.SCHEDULED) {
+            throw new ConflictException("Отметку «Не явился» можно поставить только ожидающему приёму");
+        }
+        if (!actor.isAdmin()
+                && (!actor.isDoctor()
+                || !Objects.equals(actor.getDoctorId(), appointment.getDoctor().getId()))) {
+            throw new ForbiddenOperationException("Отметку может поставить только назначенный врач");
+        }
+        if (appointment.getStartTime().isAfter(LocalDateTime.now())) {
+            throw new BusinessRuleException("Нельзя отметить неявку до начала приёма");
+        }
+        appointment.setStatus(AppointmentStatus.NO_SHOW);
+        return AppointmentResponse.from(appointment);
+    }
+
+    @Transactional
     public AppointmentResponse cancel(Long id, CancelRequest request, UserPrincipal actor) {
         Appointment appointment = getDetailed(id);
         if (appointment.getStatus() != AppointmentStatus.SCHEDULED) {
@@ -228,6 +263,9 @@ public class AppointmentService {
     private void checkViewAccess(Appointment appointment, UserPrincipal actor) {
         if (actor.isDoctor() && !Objects.equals(actor.getDoctorId(), appointment.getDoctor().getId())) {
             throw new ForbiddenOperationException("Врач может просматривать только свои приёмы");
+        }
+        if (actor.isPatient() && !Objects.equals(actor.getPatientId(), appointment.getPatient().getId())) {
+            throw new ForbiddenOperationException("Пациент может просматривать только свои визиты");
         }
     }
 

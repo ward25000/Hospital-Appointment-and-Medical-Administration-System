@@ -7,6 +7,7 @@ import com.ward.hospital.domain.DoctorSchedule;
 import com.ward.hospital.domain.Gender;
 import com.ward.hospital.domain.MedicalService;
 import com.ward.hospital.domain.Patient;
+import com.ward.hospital.domain.Referral;
 import com.ward.hospital.domain.Role;
 import com.ward.hospital.domain.Specialization;
 import com.ward.hospital.domain.User;
@@ -15,6 +16,7 @@ import com.ward.hospital.repository.DoctorRepository;
 import com.ward.hospital.repository.DoctorScheduleRepository;
 import com.ward.hospital.repository.MedicalServiceRepository;
 import com.ward.hospital.repository.PatientRepository;
+import com.ward.hospital.repository.ReferralRepository;
 import com.ward.hospital.repository.SpecializationRepository;
 import com.ward.hospital.repository.UserRepository;
 import org.slf4j.Logger;
@@ -51,6 +53,7 @@ public class DemoDataInitializer implements CommandLineRunner {
     private final PatientRepository patientRepository;
     private final MedicalServiceRepository serviceRepository;
     private final AppointmentRepository appointmentRepository;
+    private final ReferralRepository referralRepository;
     private final PasswordEncoder passwordEncoder;
 
     private final Map<Long, List<LocalDateTime[]>> bookedIntervals = new HashMap<>();
@@ -62,6 +65,7 @@ public class DemoDataInitializer implements CommandLineRunner {
                                PatientRepository patientRepository,
                                MedicalServiceRepository serviceRepository,
                                AppointmentRepository appointmentRepository,
+                               ReferralRepository referralRepository,
                                PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.specializationRepository = specializationRepository;
@@ -70,6 +74,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         this.patientRepository = patientRepository;
         this.serviceRepository = serviceRepository;
         this.appointmentRepository = appointmentRepository;
+        this.referralRepository = referralRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -104,6 +109,11 @@ public class DemoDataInitializer implements CommandLineRunner {
         staff.addAll(List.of(ivanovUser, petrovaUser, smirnovUser, kuznetsovaUser));
         userRepository.saveAll(staff);
 
+        User patientUser = new User("patient.demo", passwordEncoder.encode("Patient123!"),
+                "Соколова Анна", Role.PATIENT);
+        userRepository.save(patientUser);
+        patients.get(0).setUser(patientUser);
+
         Doctor ivanov = new Doctor(ivanovUser, specializations.get(0), "Алексей", "Иванов",
                 "a.ivanov@medcenter.ru", "+7 (495) 120-20-01", "201");
         ivanov.setBio("Кардиолог высшей категории. Стаж 18 лет. Специализируется на диагностике "
@@ -126,9 +136,11 @@ public class DemoDataInitializer implements CommandLineRunner {
         seedSchedules(doctors);
 
         seedAppointments(patients, services, doctors, admin);
+        seedReferrals(patients, specializations, doctors);
 
-        log.info("Demo data created: {} doctors, {} patients, {} services, {} appointments",
-                doctors.size(), patients.size(), services.size(), appointmentRepository.count());
+        log.info("Demo data created: {} doctors, {} patients, {} services, {} appointments, {} referrals",
+                doctors.size(), patients.size(), services.size(), appointmentRepository.count(),
+                referralRepository.count());
     }
 
     private List<Specialization> seedSpecializations() {
@@ -165,29 +177,29 @@ public class DemoDataInitializer implements CommandLineRunner {
 
     private List<Patient> seedPatients() {
         return patientRepository.saveAll(List.of(
-                new Patient("Анна", "Соколова", LocalDate.of(1990, 4, 12), Gender.FEMALE,
+                new Patient("900412100001", "Анна", "Соколова", LocalDate.of(1990, 4, 12), Gender.FEMALE,
                         "+7 (916) 100-10-01", "a.sokolova@example.com", "Москва, ул. Лесная, 10"),
-                new Patient("Михаил", "Орлов", LocalDate.of(1985, 9, 23), Gender.MALE,
+                new Patient("850923100002", "Михаил", "Орлов", LocalDate.of(1985, 9, 23), Gender.MALE,
                         "+7 (916) 100-10-02", "m.orlov@example.com", "Москва, ул. Мира, 24"),
-                new Patient("Елена", "Волкова", LocalDate.of(1978, 1, 30), Gender.FEMALE,
+                new Patient("780130100003", "Елена", "Волкова", LocalDate.of(1978, 1, 30), Gender.FEMALE,
                         "+7 (916) 100-10-03", "e.volkova@example.com", "Москва, ул. Садовая, 7"),
-                new Patient("Артём", "Лебедев", LocalDate.of(1998, 6, 17), Gender.MALE,
+                new Patient("980617100004", "Артём", "Лебедев", LocalDate.of(1998, 6, 17), Gender.MALE,
                         "+7 (916) 100-10-04", "a.lebedev@example.com", "Москва, пр-т Вернадского, 41"),
-                new Patient("Ольга", "Морозова", LocalDate.of(1992, 12, 5), Gender.FEMALE,
+                new Patient("921205100005", "Ольга", "Морозова", LocalDate.of(1992, 12, 5), Gender.FEMALE,
                         "+7 (916) 100-10-05", "o.morozova@example.com", "Москва, ул. Полярная, 15"),
-                new Patient("Сергей", "Новиков", LocalDate.of(1969, 3, 14), Gender.MALE,
+                new Patient("690314100006", "Сергей", "Новиков", LocalDate.of(1969, 3, 14), Gender.MALE,
                         "+7 (916) 100-10-06", "s.novikov@example.com", "Москва, ул. Академика Королёва, 8"),
-                new Patient("Дарья", "Зайцева", LocalDate.of(2001, 7, 21), Gender.FEMALE,
+                new Patient("010721100007", "Дарья", "Зайцева", LocalDate.of(2001, 7, 21), Gender.FEMALE,
                         "+7 (916) 100-10-07", "d.zaitseva@example.com", "Москва, ул. Тверская, 19"),
-                new Patient("Павел", "Егоров", LocalDate.of(1988, 11, 2), Gender.MALE,
+                new Patient("881102100008", "Павел", "Егоров", LocalDate.of(1988, 11, 2), Gender.MALE,
                         "+7 (916) 100-10-08", "p.egorov@example.com", "Москва, ул. Гагарина, 33"),
-                new Patient("Ирина", "Павлова", LocalDate.of(1975, 5, 9), Gender.FEMALE,
+                new Patient("750509100009", "Ирина", "Павлова", LocalDate.of(1975, 5, 9), Gender.FEMALE,
                         "+7 (916) 100-10-09", "i.pavlova@example.com", "Москва, ул. Никольская, 5"),
-                new Patient("Никита", "Козлов", LocalDate.of(2014, 8, 19), Gender.MALE,
+                new Patient("140819100010", "Никита", "Козлов", LocalDate.of(2014, 8, 19), Gender.MALE,
                         "+7 (916) 100-10-10", "n.kozlov@example.com", "Москва, ул. Строителей, 12"),
-                new Patient("София", "Белова", LocalDate.of(2018, 2, 27), Gender.FEMALE,
+                new Patient("180227100011", "София", "Белова", LocalDate.of(2018, 2, 27), Gender.FEMALE,
                         "+7 (916) 100-10-11", "s.belova@example.com", "Москва, ул. Молодёжная, 3"),
-                new Patient("Виктор", "Громов", LocalDate.of(1962, 10, 11), Gender.MALE,
+                new Patient("621011100012", "Виктор", "Громов", LocalDate.of(1962, 10, 11), Gender.MALE,
                         "+7 (916) 100-10-12", "v.gromov@example.com", "Москва, ул. Ветеранская, 21")
         ));
     }
@@ -251,6 +263,38 @@ public class DemoDataInitializer implements CommandLineRunner {
                 AppointmentStatus.CANCELLED, "Пациент перенёс визит", "Перенос по инициативе пациента");
         addAppointment(today.plusDays(4), LocalTime.of(13, 0), 7, 4, patients, services, doctors, admin,
                 AppointmentStatus.CANCELLED, null, "Пациент отменил запись");
+        addAppointment(today.minusDays(1), LocalTime.of(12, 30), 2, 1, patients, services, doctors, admin,
+                AppointmentStatus.NO_SHOW, "Пациент не явился на приём", null);
+    }
+
+    private void seedReferrals(List<Patient> patients, List<Specialization> specializations,
+                               List<Doctor> doctors) {
+        Doctor ivanov = doctors.get(0);
+        Doctor petrova = doctors.get(1);
+        Doctor kuznetsova = doctors.get(3);
+
+        Referral toNeurologist = new Referral(patients.get(0), ivanov,
+                findAppointment(patients.get(0)));
+        toNeurologist.setToDoctor(petrova);
+        toNeurologist.setDepartment(petrova.getSpecialization().getName());
+        toNeurologist.setOffice(petrova.getOffice());
+        toNeurologist.setReason("Головные боли, направление к неврологу");
+
+        Referral toCardiologist = new Referral(patients.get(1), kuznetsova,
+                findAppointment(patients.get(1)));
+        toCardiologist.setToSpecialization(specializations.get(0));
+        toCardiologist.setDepartment(specializations.get(0).getName());
+        toCardiologist.setOffice("201");
+        toCardiologist.setReason("Повышенное артериальное давление, нужна консультация кардиолога");
+
+        referralRepository.saveAll(List.of(toNeurologist, toCardiologist));
+    }
+
+    private Appointment findAppointment(Patient patient) {
+        return appointmentRepository.findAll().stream()
+                .filter(appointment -> appointment.getPatient().getId().equals(patient.getId()))
+                .findFirst()
+                .orElse(null);
     }
 
     private void addAppointment(LocalDate date, LocalTime time, int patientIndex, int serviceIndex,

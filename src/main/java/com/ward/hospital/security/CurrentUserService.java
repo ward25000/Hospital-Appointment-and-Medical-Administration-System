@@ -24,4 +24,12 @@ public class CurrentUserService {
         }
         return principal.getDoctorId();
     }
+
+    public Long requirePatientId() {
+        UserPrincipal principal = requirePrincipal();
+        if (principal.getPatientId() == null) {
+            throw new AuthenticationCredentialsNotFoundException("Учётная запись не связана с пациентом");
+        }
+        return principal.getPatientId();
+    }
 }

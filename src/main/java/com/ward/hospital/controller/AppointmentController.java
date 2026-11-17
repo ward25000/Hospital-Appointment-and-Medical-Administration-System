@@ -83,4 +83,10 @@ public class AppointmentController {
         CancelRequest effectiveRequest = request == null ? new CancelRequest(null) : request;
         return appointmentService.cancel(id, effectiveRequest, currentUserService.requirePrincipal());
     }
+
+    @PostMapping("/{id}/no-show")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR')")
+    public AppointmentResponse markNoShow(@PathVariable Long id) {
+        return appointmentService.markNoShow(id, currentUserService.requirePrincipal());
+    }
 }

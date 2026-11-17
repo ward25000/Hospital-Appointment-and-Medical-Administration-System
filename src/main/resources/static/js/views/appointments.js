@@ -46,9 +46,10 @@ function statusTab(status) {
     value: status,
     label: {
       '': 'Все записи',
-      SCHEDULED: 'Запланированные',
-      COMPLETED: 'Завершённые',
+      SCHEDULED: 'Ожидают',
+      COMPLETED: 'Приёмы проведены',
       CANCELLED: 'Отменённые',
+      NO_SHOW: 'Не явились',
     }[status],
   };
 }
@@ -152,6 +153,11 @@ function appointmentRow(appointment, user, callbacks) {
   const canCancelNow = appointment.status === 'SCHEDULED'
     && (scheduler || (user.role === 'DOCTOR' && isOwnDoctor));
   const canReschedule = appointment.status === 'SCHEDULED' && scheduler;
+  const canNoShow = appointment.status === 'SCHEDULED'
+    && new Date(appointment.startTime) <= new Date()
+    && (user.role === 'ADMIN' || isOwnDoctor);
+  const canReferral = (appointment.status === 'SCHEDULED' || appointment.status === 'COMPLETED')
+    && (user.role === 'ADMIN' || isOwnDoctor);
 
   return `
     <tr>
@@ -183,6 +189,8 @@ function appointmentRow(appointment, user, callbacks) {
           <button type="button" class="icon-action" data-view="${appointment.id}" title="Открыть карточку" aria-label="Открыть запись">${icon('eye')}</button>
           ${canReschedule ? `<button type="button" class="icon-action" data-reschedule="${appointment.id}" title="Перенести" aria-label="Перенести запись">${icon('calendar')}</button>` : ''}
           ${canComplete ? `<button type="button" class="icon-action" data-complete="${appointment.id}" title="Завершить приём" aria-label="Завершить приём">${icon('check-circle')}</button>` : ''}
+          ${canNoShow ? `<button type="button" class="icon-action danger" data-no-show="${appointment.id}" title="Не явился" aria-label="Отметить неявку">${icon('user')}</button>` : ''}
+          ${canReferral ? `<button type="button" class="icon-action" data-referral="${appointment.id}" title="Выписать направление" aria-label="Выписать направление">${icon('referrals')}</button>` : ''}
           ${canCancelNow ? `<button type="button" class="icon-action danger" data-cancel="${appointment.id}" title="Отменить" aria-label="Отменить запись">${icon('ban')}</button>` : ''}
         </div>
       </td>
@@ -277,7 +285,7 @@ export async function render(root, ctx) {
 
       <div class="flex items-center gap-12 flex-wrap">
         ${segmentedControl(
-          ['', 'SCHEDULED', 'COMPLETED', 'CANCELLED'].map(statusTab),
+          ['', 'SCHEDULED', 'COMPLETED', 'NO_SHOW', 'CANCELLED'].map(statusTab),
           state.status,
         )}
         ${state.patientId ? `
@@ -314,6 +322,12 @@ export async function render(root, ctx) {
     });
     tableContainer.querySelectorAll('[data-complete]').forEach((button) => {
       button.addEventListener('click', () => openComplete(Number(button.dataset.complete), { onDone: loadRows }));
+    });
+    tableContainer.querySelectorAll('[data-no-show]').forEach((button) => {
+      button.addEventListener('click', () => markNoShow(Number(button.dataset.noShow), loadRows));
+    });
+    tableContainer.querySelectorAll('[data-referral]').forEach((button) => {
+      button.addEventListener('click', () => openReferralForm(Number(button.dataset.referral), { onDone: loadRows }));
     });
     tableContainer.querySelectorAll('[data-cancel]').forEach((button) => {
       button.addEventListener('click', () => openCancel(Number(button.dataset.cancel), { onDone: loadRows }));
@@ -855,6 +869,137 @@ export async function openCancel(id, options = {}) {
   });
 }
 
+export async function markNoShow(id, onDone) {
+  const confirmed = await confirmDialog({
+    title: 'Отметить неявку?',
+    message: 'Приём получит статус «Не явился». Вернуть его в работу можно будет только через администратора.',
+    confirmText: 'Не явился',
+    cancelText: 'Назад',
+    danger: true,
+    iconName: 'user',
+  });
+  if (!confirmed) {
+    return;
+  }
+  try {
+    const updated = await api.appointments.noShow(id);
+    toast(`Приём № ${id}: ${updated.statusLabel}`, 'success', 'Неявка отмечена');
+    onDone?.(updated);
+    document.dispatchEvent(new CustomEvent('appointments:changed', { detail: updated }));
+  } catch (error) {
+    toast(getErrorMessage(error), 'error');
+  }
+}
+
+export async function openReferralForm(appointmentId, options = {}) {
+  const { onDone = null } = options;
+  let doctors = [];
+  let specializations = [];
+  try {
+    [doctors, specializations] = await Promise.all([
+      api.doctors.list(),
+      api.specializations.list(),
+    ]);
+  } catch (error) {
+    toast(getErrorMessage(error), 'error', 'Не удалось загрузить справочники');
+    return;
+  }
+
+  const formId = `referral-form-${Date.now()}`;
+  const modal = openModal({
+    title: 'Электронное направление',
+    subtitle: `Приём № ${appointmentId} · данные фиксируются в общей базе`,
+    size: 'lg',
+    body: `
+      <form id="${formId}" class="modal-enter" novalidate>
+        <div class="form-alert hidden" data-form-alert role="alert"></div>
+        <div class="field">
+          <label>К кому *</label>
+          <div class="flex items-center gap-16" style="padding-top:4px">
+            <label class="radio-label"><input type="radio" name="targetType" value="specialty" checked> Специальность</label>
+            <label class="radio-label"><input type="radio" name="targetType" value="doctor"> Конкретный врач</label>
+          </div>
+        </div>
+        <div class="form-grid mt-16">
+          <div class="field" data-target-specialty>
+            <label for="${formId}-specialization">Специальность *</label>
+            <select class="select" id="${formId}-specialization" name="toSpecializationId">
+              ${specializations.map((item) => `<option value="${item.id}">${esc(item.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field hidden" data-target-doctor>
+            <label for="${formId}-doctor">Врач *</label>
+            <select class="select" id="${formId}-doctor" name="toDoctorId">
+              ${doctors.map((item) => `<option value="${item.id}">${esc(item.fullName)} · ${esc(item.specializationName || '')}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label for="${formId}-department">Отделение</label>
+            <input class="input" id="${formId}-department" name="department" maxlength="120" placeholder="Например, Кардиология">
+          </div>
+          <div class="field">
+            <label for="${formId}-office">Кабинет</label>
+            <input class="input" id="${formId}-office" name="office" maxlength="30" placeholder="Например, 201">
+          </div>
+          <div class="field span-2">
+            <label for="${formId}-reason">Причина направления</label>
+            <textarea class="input" id="${formId}-reason" name="reason" rows="3" maxlength="500" placeholder="Краткое описание цели консультации"></textarea>
+          </div>
+        </div>
+        <div class="callout mt-16">
+          ${icon('info')}
+          <span>Если отделение и кабинет не указать, они будут заполнены автоматически из профиля врача или специальности.</span>
+        </div>
+      </form>
+    `,
+    footer: `<span class="spacer"></span><button type="button" class="btn btn-secondary" data-close>Отмена</button>
+             <button type="button" class="btn btn-primary" data-save>${icon('referrals')}<span>Выписать</span></button>`,
+  });
+
+  const form = modal.body.querySelector('form');
+  const specialtyField = modal.body.querySelector('[data-target-specialty]');
+  const doctorField = modal.body.querySelector('[data-target-doctor]');
+
+  form.querySelectorAll('[name="targetType"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      const byDoctor = form.querySelector('[name="targetType"]:checked').value === 'doctor';
+      specialtyField.classList.toggle('hidden', byDoctor);
+      doctorField.classList.toggle('hidden', !byDoctor);
+    });
+  });
+
+  modal.footer.querySelector('[data-close]').addEventListener('click', () => modal.close());
+  modal.footer.querySelector('[data-save]').addEventListener('click', async (event) => {
+    clearFieldErrors(form);
+    const button = event.currentTarget;
+    const byDoctor = form.querySelector('[name="targetType"]:checked').value === 'doctor';
+    const payload = {
+      appointmentId,
+      department: formValue(form, 'department') || null,
+      office: formValue(form, 'office') || null,
+      reason: formValue(form, 'reason') || null,
+    };
+    if (byDoctor) {
+      payload.toDoctorId = Number(formValue(form, 'toDoctorId'));
+    } else {
+      payload.toSpecializationId = Number(formValue(form, 'toSpecializationId'));
+    }
+    setButtonLoading(button, true, 'Сохраняем…');
+    try {
+      const created = await api.referrals.create(payload);
+      modal.close();
+      toast(`Направление № ${created.id} выписано`, 'success', 'Доступно врачу-получателю');
+      onDone?.(created);
+      document.dispatchEvent(new CustomEvent('referrals:changed', { detail: created }));
+    } catch (error) {
+      showFormAlert(form, getErrorMessage(error));
+      applyFieldErrors(form, error?.fieldErrors);
+    } finally {
+      setButtonLoading(button, false);
+    }
+  });
+}
+
 export async function openComplete(id, options = {}) {
   const { onDone = null } = options;
   const confirmed = await confirmDialog({
@@ -909,6 +1054,11 @@ export async function openDetails(id, options = {}) {
     && (user?.role === 'ADMIN' || isOwnDoctor);
   const canCancelNow = appointment.status === 'SCHEDULED'
     && (scheduler || isOwnDoctor);
+  const canNoShowNow = appointment.status === 'SCHEDULED'
+    && new Date(appointment.startTime) <= new Date()
+    && (user?.role === 'ADMIN' || isOwnDoctor);
+  const canReferralNow = (appointment.status === 'SCHEDULED' || appointment.status === 'COMPLETED')
+    && (user?.role === 'ADMIN' || isOwnDoctor);
 
   modal.body.innerHTML = `
     <div class="detail-status-row">
@@ -959,6 +1109,8 @@ export async function openDetails(id, options = {}) {
     <span class="spacer"></span>
     ${canReschedule ? `<button type="button" class="btn btn-secondary" data-reschedule>${icon('calendar')}<span>Перенести</span></button>` : ''}
     ${canCancelNow ? `<button type="button" class="btn btn-danger-soft" data-cancel-appointment>${icon('ban')}<span>Отменить</span></button>` : ''}
+    ${canNoShowNow ? `<button type="button" class="btn btn-danger-soft" data-no-show-appointment>${icon('user')}<span>Не явился</span></button>` : ''}
+    ${canReferralNow ? `<button type="button" class="btn btn-secondary" data-referral-appointment>${icon('referrals')}<span>Направление</span></button>` : ''}
     ${canCompleteNow ? `<button type="button" class="btn btn-primary" data-complete>${icon('check-circle')}<span>Завершить приём</span></button>` : ''}
     <button type="button" class="btn btn-secondary" data-close>Закрыть</button>
   `;
@@ -975,5 +1127,13 @@ export async function openDetails(id, options = {}) {
   modal.footer.querySelector('[data-complete]')?.addEventListener('click', async () => {
     modal.close();
     await openComplete(appointment.id, { onDone: onChanged });
+  });
+  modal.footer.querySelector('[data-no-show-appointment]')?.addEventListener('click', async () => {
+    modal.close();
+    await markNoShow(appointment.id, onChanged);
+  });
+  modal.footer.querySelector('[data-referral-appointment]')?.addEventListener('click', () => {
+    modal.close();
+    openReferralForm(appointment.id, { onDone: onChanged });
   });
 }

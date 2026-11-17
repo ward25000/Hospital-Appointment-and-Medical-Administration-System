@@ -46,6 +46,10 @@ const ICONS = {
   printer: '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/>',
   sparkles: '<path d="m12 3 1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3Z"/><path d="m19 15 .8 1.9 1.9.8-1.9.8L19 21l-.8-1.9-1.9-.8 1.9-.8L19 15Z"/>',
   'trend-up': '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/><path d="M12 12v4M10 14h4"/>',
+  visits: '<rect x="4" y="4" width="16" height="17" rx="2.5"/><path d="M9 4V2.8M15 4V2.8M8 10h8M8 14h8M8 18h5"/>',
+  referrals: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
+  inbox: '<path d="M4 4h16l2 10v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5L4 4Z"/><path d="M2 14h6l1.5 3h5L16 14h6"/>',
 };
 
 export function icon(name, className = 'icon') {
@@ -221,15 +225,17 @@ export function avatar(name, extraClass = '') {
 }
 
 export const STATUS_LABELS = {
-  SCHEDULED: 'Запланирован',
-  COMPLETED: 'Завершён',
+  SCHEDULED: 'Ожидает',
+  COMPLETED: 'Приём проведён',
   CANCELLED: 'Отменён',
+  NO_SHOW: 'Не явился',
 };
 
 export const STATUS_CLASSES = {
   SCHEDULED: 'status-scheduled',
   COMPLETED: 'status-completed',
   CANCELLED: 'status-cancelled',
+  NO_SHOW: 'status-noshow',
 };
 
 export function statusBadge(status, label) {
@@ -242,11 +248,31 @@ export function statusChip(status, label) {
   return `<span class="calendar-chip ${className}">${esc(label || STATUS_LABELS[status] || status)}</span>`;
 }
 
+export const REFERRAL_STATUS_LABELS = {
+  PENDING: 'Ожидает',
+  ACCEPTED: 'Принято',
+  COMPLETED: 'Выполнено',
+  CANCELLED: 'Отменено',
+};
+
+export const REFERRAL_STATUS_CLASSES = {
+  PENDING: 'status-scheduled',
+  ACCEPTED: 'status-completed',
+  COMPLETED: 'status-completed',
+  CANCELLED: 'status-cancelled',
+};
+
+export function referralStatusBadge(status, label) {
+  const className = REFERRAL_STATUS_CLASSES[status] || 'badge-neutral';
+  return `<span class="badge ${className} badge-dot">${esc(label || REFERRAL_STATUS_LABELS[status] || status)}</span>`;
+}
+
 export function roleLabel(role) {
   return {
     ADMIN: 'Администратор',
     DOCTOR: 'Врач',
     RECEPTIONIST: 'Регистратор',
+    PATIENT: 'Пациент',
   }[role] || role;
 }
 

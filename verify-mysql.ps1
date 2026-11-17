@@ -3,8 +3,8 @@
     MedFlow — MySQL-side verification.
 
     Proves that the running application really uses MySQL, that Flyway created
-    the schema, that demo data is present and that the database itself blocks
-    double booking of the same doctor slot.
+    the schema (including V3 patient portal and referrals), that demo data
+    is present and that the database itself blocks double booking of a slot.
 
     Prerequisites:
         1) portable MySQL is running:
@@ -87,16 +87,20 @@ Check 'Server accepts writes' ($readOnly -eq '0') "read_only=$readOnly"
 # --- 2. Flyway migrations ----------------------------------------------------
 $migrations = @(Invoke-Sql 'SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;')
 $migrationText = ($migrations | ForEach-Object { [string]$_ }) -join '; '
-Check 'Flyway applied V1 + V2' `
-    ($migrations.Count -ge 2 -and (($migrations | ForEach-Object { ([string]$_).Split("`t")[2] }) -notcontains '0')) `
-    $migrationText
+$migrationVersions = @($migrations | ForEach-Object { ([string]$_).Split("`t")[0] })
+$migrationSuccess = @($migrations | ForEach-Object { ([string]$_).Split("`t")[2] })
+$expectedMigrations = @('1', '2', '3')
+$missingMigrations = $expectedMigrations | Where-Object { $migrationVersions -notcontains $_ }
+Check 'Flyway applied V1 + V2 + V3' `
+    ($missingMigrations.Count -eq 0 -and $migrationSuccess -notcontains '0') `
+    "versions=$($migrationVersions -join ','), missing=$($missingMigrations -join ','); $migrationText"
 
 # --- 3. Schema ---------------------------------------------------------------
 $tableCount = Get-Scalar "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$Database' AND table_type = 'BASE TABLE';"
 $tableNames = @(Invoke-Sql "SELECT table_name FROM information_schema.tables WHERE table_schema = '$Database' AND table_type = 'BASE TABLE' ORDER BY table_name;")
-$expectedTables = @('appointments', 'doctor_schedules', 'doctors', 'flyway_schema_history', 'medical_services', 'patients', 'specializations', 'users')
+$expectedTables = @('appointments', 'doctor_schedules', 'doctors', 'flyway_schema_history', 'medical_services', 'patients', 'referrals', 'specializations', 'users')
 $missing = $expectedTables | Where-Object { $tableNames -notcontains $_ }
-Check 'All expected tables exist' ([int]$tableCount -ge 8 -and $missing.Count -eq 0) `
+Check 'All expected tables exist' ([int]$tableCount -ge 9 -and $missing.Count -eq 0) `
     "tables=$tableCount, missing=$($missing -join ',')"
 
 $indexColumns = Get-Scalar @"
@@ -107,6 +111,56 @@ WHERE table_schema = '$Database'
   AND index_name = 'uk_appointments_doctor_slot_status';
 "@
 Check 'Unique slot index exists' ($indexColumns -eq 'doctor_id,start_time,status') "columns=$indexColumns"
+
+# --- 3b. V3 patient portal + referrals schema --------------------------------
+$iinIndex = Get-Scalar @"
+SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index)
+FROM information_schema.statistics
+WHERE table_schema = '$Database'
+  AND table_name = 'patients'
+  AND index_name = 'uk_patients_iin';
+"@
+Check 'patients.iin has a unique index' ($iinIndex -eq 'iin') "columns=$iinIndex"
+
+$iinNullable = Get-Scalar @"
+SELECT is_nullable
+FROM information_schema.columns
+WHERE table_schema = '$Database' AND table_name = 'patients' AND column_name = 'iin';
+"@
+Check 'patients.iin is NOT NULL' ($iinNullable -eq 'NO') "is_nullable=$iinNullable"
+
+$userIndex = Get-Scalar @"
+SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index)
+FROM information_schema.statistics
+WHERE table_schema = '$Database'
+  AND table_name = 'patients'
+  AND index_name = 'uk_patients_user';
+"@
+Check 'patients.user_id has a unique index' ($userIndex -eq 'user_id') "columns=$userIndex"
+
+$patientUserFk = Get-Scalar @"
+SELECT COUNT(*) FROM information_schema.table_constraints
+WHERE table_schema = '$Database' AND table_name = 'patients'
+  AND constraint_name = 'fk_patients_user' AND constraint_type = 'FOREIGN KEY';
+"@
+Check 'patients.user_id references users.id' ([int]$patientUserFk -eq 1) "constraints=$patientUserFk"
+
+$referralFks = Get-Scalar @"
+SELECT GROUP_CONCAT(constraint_name ORDER BY constraint_name)
+FROM information_schema.table_constraints
+WHERE table_schema = '$Database' AND table_name = 'referrals'
+  AND constraint_type = 'FOREIGN KEY';
+"@
+$expectedFks = @('fk_referrals_appointment', 'fk_referrals_from_doctor', 'fk_referrals_patient', 'fk_referrals_to_doctor', 'fk_referrals_to_specialization')
+$missingFks = $expectedFks | Where-Object { $referralFks -notlike "*$_*" }
+Check 'referrals has all 5 foreign keys' ($missingFks.Count -eq 0) "missing=$($missingFks -join ','); found=$referralFks"
+
+$targetCheck = Get-Scalar @"
+SELECT COUNT(*) FROM information_schema.table_constraints
+WHERE table_schema = '$Database' AND table_name = 'referrals'
+  AND constraint_name = 'ck_referrals_target' AND constraint_type = 'CHECK';
+"@
+Check 'referrals enforces exactly one target' ([int]$targetCheck -eq 1) "constraints=$targetCheck"
 
 # --- 4. Demo data ------------------------------------------------------------
 $doctorCount = Get-Scalar 'SELECT COUNT(*) FROM doctors;'
@@ -131,6 +185,27 @@ $completed = @(Invoke-Sql "SELECT COUNT(*), COALESCE(SUM(price), 0) FROM appoint
 $completedParts = if ($completed.Count -gt 0) { ([string]$completed[0]).Split("`t") } else { @('', '') }
 Check 'Completed visits carry a price' ($completedParts.Count -ge 2 -and [int]$completedParts[0] -gt 0 -and [decimal]$completedParts[1] -gt 0) `
     "completed=$($completedParts[0]), total=$($completedParts[1])"
+
+$patientUser = Get-Scalar @"
+SELECT CONCAT(u.username, '|', u.role_name, '|', p.id, '|', p.iin)
+FROM users u JOIN patients p ON p.user_id = u.id
+WHERE u.username = 'patient.demo';
+"@
+$patientUserParts = ([string]$patientUser).Split('|')
+Check 'Demo patient account is linked to a patient card' `
+    ($patientUserParts.Count -eq 4 -and $patientUserParts[0] -eq 'patient.demo' -and $patientUserParts[1] -eq 'PATIENT' -and $patientUserParts[2] -ne '' -and $patientUserParts[3] -match '^\d{12}$') `
+    "user=$patientUser"
+
+$referralCount = Get-Scalar 'SELECT COUNT(*) FROM referrals;'
+Check 'Seeded referrals exist' ([int]$referralCount -ge 2) "referrals=$referralCount"
+
+$routedToDoctor = Get-Scalar @"
+SELECT COUNT(*) FROM referrals r
+JOIN doctors d ON d.id = r.to_doctor_id
+JOIN users u ON u.id = d.user_id
+WHERE u.username = 'doctor.petrova' AND r.to_doctor_id IS NOT NULL;
+"@
+Check 'A referral is routed to doctor.petrova' ([int]$routedToDoctor -ge 1) "referrals=$routedToDoctor"
 
 # --- 5. Business rule: no overlapping scheduled visits -----------------------
 $overlaps = Get-Scalar @"

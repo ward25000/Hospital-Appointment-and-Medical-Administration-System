@@ -1,9 +1,10 @@
 package com.ward.hospital.domain;
 
 public enum AppointmentStatus {
-    SCHEDULED("Запланирован"),
-    COMPLETED("Завершён"),
-    CANCELLED("Отменён");
+    SCHEDULED("Ожидает"),
+    COMPLETED("Приём проведён"),
+    CANCELLED("Отменён"),
+    NO_SHOW("Не явился");
 
     private final String label;
 

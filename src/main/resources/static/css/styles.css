@@ -514,6 +514,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 .demo-role-admin { background: #e8e5ff; color: #5b46c7; }
 .demo-role-reception { background: #e2f0ff; color: #2468b5; }
 .demo-role-doctor { background: var(--primary-soft); color: var(--primary-strong); }
+.demo-role-patient { background: var(--warning-soft); color: var(--warning); }
 .demo-account > span:last-child { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
 .demo-account strong { font-size: 12px; font-weight: 650; }
 .demo-account small { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
@@ -1445,4 +1446,66 @@ body.modal-open { overflow: hidden; }
 .slot-btn small { display: block; }
 .booking-summary { min-height: 40px; }
 .modal-enter > .form-grid { margin-bottom: 2px; }
+
+/* ============================================================
+   Patient portal and referral workflow
+   ============================================================ */
+.status-noshow { background: var(--warning-soft); color: var(--warning); }
+.calendar-chip.status-noshow { background: #fff6e2; color: #a5660a; }
+
+.callout {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-pale);
+  color: var(--text-soft);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.callout .icon { width: 18px; height: 18px; flex: none; color: var(--primary); margin-top: 1px; }
+
+.radio-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.radio-label input { accent-color: var(--primary); width: 16px; height: 16px; }
+
+.auth-mode {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  margin-bottom: 22px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.auth-mode button {
+  flex: 1;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  transition: var(--transition);
+}
+.auth-mode button.is-active {
+  background: var(--surface);
+  color: var(--primary-strong);
+  box-shadow: var(--shadow-sm);
+}
+.auth-form { display: none; }
+.auth-form.is-active { display: block; }
+.register-form .form-grid { gap: 12px; }
+.register-form .field label { font-size: 12px; }
+.register-form .input { padding-top: 9px; padding-bottom: 9px; }
+.login-card { max-height: calc(100vh - 48px); overflow-y: auto; }
+.login-card-head p { margin-bottom: 0; }
 
