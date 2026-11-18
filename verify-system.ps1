@@ -226,8 +226,10 @@ if (-not $slot) {
     $busySlot = $availabilityAfter.slots |
         Where-Object { $_.startTime -eq $slot.startTime } |
         Select-Object -First 1
+    # The server sends a Russian "reason" string; PowerShell 5.1 decodes it with
+    # the wrong charset and prints mojibake. The value is not needed for the check.
     Write-Check 'Booked slot is reported as unavailable' ($busySlot -and -not $busySlot.available) `
-        "available=$($busySlot.available), reason=$($busySlot.reason)"
+        "available=$($busySlot.available)"
 
     $pastBody = @{
         doctorId  = $doctorId

@@ -1,3 +1,4 @@
 @echo off
-rem Convenience stub: the self-contained launchers live in the kit root.
-call "%~dp0..\OPEN-DB-GUI.cmd" %*
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0db.ps1" -Mode gui
+echo.
+pause
