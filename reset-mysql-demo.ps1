@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
     MedFlow - reset the MySQL demo database.
 
@@ -13,12 +13,12 @@
 #>
 
 param(
-    [string]$MySQLHome = 'C:\Users\Happy\mysql84',
+    [string]$MySQLHome = "$env:USERPROFILE\mysql84",
     [string]$HostName = '127.0.0.1',
     [int]$Port = 3306,
     [string]$Database = 'hospital_db',
     [string]$RootUser = 'root',
-    [string]$RootPassword = 'root_pass'
+    [string]$RootPassword = ''
 )
 
 $ErrorActionPreference = 'Stop'
