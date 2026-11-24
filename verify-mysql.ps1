@@ -18,7 +18,7 @@
 #>
 
 param(
-    [string]$MySQLHome = 'C:\Users\Happy\mysql84',
+    [string]$MySQLHome,
     [string]$HostName = '127.0.0.1',
     [int]$Port = 3306,
     [string]$Database = 'hospital_db',
@@ -27,7 +27,9 @@ param(
     [string]$BaseUrl = 'http://localhost:8080'
 )
 
+. (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'medflow-common.ps1')
 $ErrorActionPreference = 'Continue'
+$MySQLHome = Resolve-MfMySqlHome $MySQLHome
 $script:passed = 0
 $script:failed = 0
 
@@ -89,18 +91,18 @@ $migrations = @(Invoke-Sql 'SELECT version, description, success FROM flyway_sch
 $migrationText = ($migrations | ForEach-Object { [string]$_ }) -join '; '
 $migrationVersions = @($migrations | ForEach-Object { ([string]$_).Split("`t")[0] })
 $migrationSuccess = @($migrations | ForEach-Object { ([string]$_).Split("`t")[2] })
-$expectedMigrations = @('1', '2', '3')
+$expectedMigrations = @('1', '2', '3', '4', '5')
 $missingMigrations = $expectedMigrations | Where-Object { $migrationVersions -notcontains $_ }
-Check 'Flyway applied V1 + V2 + V3' `
+Check 'Flyway applied V1 + V2 + V3 + V4 + V5' `
     ($missingMigrations.Count -eq 0 -and $migrationSuccess -notcontains '0') `
     "versions=$($migrationVersions -join ','), missing=$($missingMigrations -join ','); $migrationText"
 
 # --- 3. Schema ---------------------------------------------------------------
 $tableCount = Get-Scalar "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$Database' AND table_type = 'BASE TABLE';"
 $tableNames = @(Invoke-Sql "SELECT table_name FROM information_schema.tables WHERE table_schema = '$Database' AND table_type = 'BASE TABLE' ORDER BY table_name;")
-$expectedTables = @('appointments', 'doctor_schedules', 'doctors', 'flyway_schema_history', 'medical_services', 'patients', 'referrals', 'specializations', 'users')
+$expectedTables = @('appointments', 'doctor_schedules', 'doctors', 'flyway_schema_history', 'medical_services', 'patients', 'payment_items', 'payments', 'referrals', 'specializations', 'users')
 $missing = $expectedTables | Where-Object { $tableNames -notcontains $_ }
-Check 'All expected tables exist' ([int]$tableCount -ge 9 -and $missing.Count -eq 0) `
+Check 'All expected tables exist' ([int]$tableCount -ge 11 -and $missing.Count -eq 0) `
     "tables=$tableCount, missing=$($missing -join ',')"
 
 $indexColumns = Get-Scalar @"
@@ -153,7 +155,7 @@ WHERE table_schema = '$Database' AND table_name = 'referrals'
 "@
 $expectedFks = @('fk_referrals_appointment', 'fk_referrals_from_doctor', 'fk_referrals_patient', 'fk_referrals_to_doctor', 'fk_referrals_to_specialization')
 $missingFks = $expectedFks | Where-Object { $referralFks -notlike "*$_*" }
-Check 'referrals has all 5 foreign keys' ($missingFks.Count -eq 0) "missing=$($missingFks -join ','); found=$referralFks"
+Check 'referrals has all expected foreign keys' ($missingFks.Count -eq 0) "missing=$($missingFks -join ','); found=$referralFks"
 
 $targetCheck = Get-Scalar @"
 SELECT COUNT(*) FROM information_schema.table_constraints

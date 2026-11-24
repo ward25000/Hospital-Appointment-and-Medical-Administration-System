@@ -1,5 +1,7 @@
 package com.ward.hospital.controller;
 
+import com.ward.hospital.dto.referral.ReferralResponse;
+import com.ward.hospital.dto.appointment.CompleteRequest;
 import com.ward.hospital.domain.AppointmentStatus;
 import com.ward.hospital.dto.appointment.AppointmentCreateRequest;
 import com.ward.hospital.dto.appointment.AppointmentResponse;
@@ -72,8 +74,21 @@ public class AppointmentController {
 
     @PostMapping("/{id}/complete")
     @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR')")
-    public AppointmentResponse complete(@PathVariable Long id) {
-        return appointmentService.complete(id, currentUserService.requirePrincipal());
+    public AppointmentResponse complete(@PathVariable Long id,
+                                        @Valid @RequestBody(required = false) CompleteRequest request) {
+        CompleteRequest effectiveRequest = request == null ? new CompleteRequest(null, null, null) : request;
+        return appointmentService.complete(id, effectiveRequest, currentUserService.requirePrincipal());
+    }
+
+    @GetMapping("/{id}/referrals")
+    public List<ReferralResponse> referrals(@PathVariable Long id) {
+        return appointmentService.findReferrals(id, currentUserService.requirePrincipal());
+    }
+
+    @GetMapping("/{id}/certificate")
+    public ResponseEntity<byte[]> certificate(@PathVariable Long id) {
+        return PdfResponses.attachment("certificate-" + id + ".pdf",
+                appointmentService.certificate(id, currentUserService.requirePrincipal()));
     }
 
     @PostMapping("/{id}/cancel")

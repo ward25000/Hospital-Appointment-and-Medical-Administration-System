@@ -1,9 +1,12 @@
 import { api, getErrorMessage } from '../api.js';
+import { t } from '../i18n.js';
 import {
   icon,
   esc,
   avatar,
   statusBadge,
+  paymentBadge,
+  referralStatusBadge,
   formatDate,
   formatDateLong,
   formatTime,
@@ -22,9 +25,9 @@ import {
   clearFieldErrors,
   showFormAlert,
   applyFieldErrors,
+  formValue,
   segmentedControl,
   pluralRu,
-  roleLabel,
 } from '../ui.js';
 import { canSchedule, hasRole, store } from '../store.js';
 import { openPatientForm } from './patients.js';
@@ -45,44 +48,42 @@ function statusTab(status) {
   return {
     value: status,
     label: {
-      '': 'Все записи',
-      SCHEDULED: 'Ожидают',
-      COMPLETED: 'Приёмы проведены',
-      CANCELLED: 'Отменённые',
-      NO_SHOW: 'Не явились',
+      '': t('Все записи'),
+      SCHEDULED: t('Ожидают'),
+      COMPLETED: t('Приёмы проведены'),
+      CANCELLED: t('Отменённые'),
+      NO_SHOW: t('Не явились'),
     }[status],
   };
 }
 
 function slotReason(reason) {
-  if (!reason) return '';
-  if (reason === 'Занято') return 'занято';
-  if (reason.includes('прошло')) return 'прошло';
-  if (reason.includes('конца смены')) return 'смена';
-  return reason;
+  if (reason === t('Занято')) return t('занято');
+  if (reason === t('Время уже прошло')) return t('прошло');
+  return t('конец смены');
 }
 
 function renderSlots(container, availability, { selectedStart = null, onSelect } = {}) {
   if (!availability.workingDay) {
     container.innerHTML = `
       <div class="slots-message">
-        ${esc(availability.message || 'В этот день врач не принимает')}
+        ${esc(availability.message || t('В этот день врач не принимает'))}
       </div>
     `;
     return;
   }
   if (!availability.slots || availability.slots.length === 0) {
-    container.innerHTML = '<div class="slots-message">На эту дату нет доступных интервалов</div>';
+    container.innerHTML = `<div class="slots-message">${t('На эту дату нет доступных интервалов')}</div>`;
     return;
   }
 
   const available = availability.slots.filter((slot) => slot.available).length;
   container.innerHTML = `
     <div class="slots-header">
-      <span class="slots-title">Свободное время</span>
+      <span class="slots-title">${t('Свободное время')}</span>
       <span class="slots-hint">${available
-        ? `Доступно ${available} ${pluralRu(available, ['слот', 'слота', 'слотов'])}`
-        : 'Свободных слотов нет'}</span>
+        ? t('Доступно {0} {1}', [available, pluralRu(available, ['слот', 'слота', 'слотов'])])
+        : t('Свободных слотов нет')}</span>
     </div>
     <div class="slots-grid">
       ${availability.slots.map((slot) => `
@@ -90,9 +91,9 @@ function renderSlots(container, availability, { selectedStart = null, onSelect }
                 class="slot-btn ${selectedStart === slot.startTime ? 'is-selected' : ''}"
                 data-slot="${esc(slot.startTime)}"
                 ${slot.available ? '' : 'disabled'}
-                title="${esc(slot.reason || 'Свободно')}">
+                title="${esc(slot.reason || t('Свободно'))}">
           ${formatTime(slot.startTime)}
-          ${slot.available ? '<small>свободно</small>' : `<small>${esc(slotReason(slot.reason))}</small>`}
+          ${slot.available ? `<small>${t('свободно')}</small>` : `<small>${esc(slotReason(slot.reason))}</small>`}
         </button>
       `).join('')}
     </div>
@@ -121,7 +122,7 @@ function doctorOptions(doctors, selectedId) {
 function allDoctorOptions(doctors, selectedId) {
   return doctors.map((doctor) => `
     <option value="${doctor.id}" ${String(doctor.id) === String(selectedId) ? 'selected' : ''}>
-      ${esc(doctor.fullName)}${doctor.active ? '' : ' (неактивен)'}
+      ${esc(doctor.fullName)}${doctor.active ? '' : ` ${t('(неактивен)')}`}
     </option>
   `).join('');
 }
@@ -129,7 +130,7 @@ function allDoctorOptions(doctors, selectedId) {
 function patientOptions(patients, selectedId) {
   return patients.map((patient) => `
     <option value="${patient.id}" ${String(patient.id) === String(selectedId) ? 'selected' : ''}>
-      ${esc(patient.fullName)} · ${esc(patient.phone)}
+      ${esc(patient.fullName)} · ${esc(patient.iin)}
     </option>
   `).join('');
 }
@@ -139,7 +140,7 @@ function serviceOptions(services, selectedId) {
     .filter((service) => service.active)
     .map((service) => `
       <option value="${service.id}" ${String(service.id) === String(selectedId) ? 'selected' : ''}>
-        ${esc(service.name)} · ${service.durationMinutes} мин · ${formatMoney(service.price)}
+        ${esc(service.name)} · ${service.durationMinutes} ${t('мин')} · ${formatMoney(service.price)}
       </option>
     `).join('');
 }
@@ -156,8 +157,7 @@ function appointmentRow(appointment, user, callbacks) {
   const canNoShow = appointment.status === 'SCHEDULED'
     && new Date(appointment.startTime) <= new Date()
     && (user.role === 'ADMIN' || isOwnDoctor);
-  const canReferral = (appointment.status === 'SCHEDULED' || appointment.status === 'COMPLETED')
-    && (user.role === 'ADMIN' || isOwnDoctor);
+  const canReferral = ['SCHEDULED', 'COMPLETED'].includes(appointment.status) && isOwnDoctor;
 
   return `
     <tr>
@@ -166,32 +166,33 @@ function appointmentRow(appointment, user, callbacks) {
           ${avatar(appointment.patientName)}
           <div>
             <strong>${esc(appointment.patientName)}</strong>
-            <small>${esc(appointment.patientPhone || 'телефон не указан')}</small>
+            <small>${t('ИИН {0}', [esc(appointment.patientIin)])}</small>
+            <small>${esc(appointment.patientPhone || '')}</small>
           </div>
         </div>
       </td>
       <td>
         <span class="cell-main">${esc(appointment.doctorName)}</span>
-        <span class="cell-sub">${esc(appointment.doctorSpecialization)}${appointment.doctorOffice ? ` · каб. ${esc(appointment.doctorOffice)}` : ''}</span>
+        <span class="cell-sub">${esc(appointment.doctorSpecialization)}${appointment.doctorOffice ? ` · ${t('каб. {0}', [esc(appointment.doctorOffice)])}` : ''}</span>
       </td>
       <td>
         <span class="cell-main">${esc(appointment.serviceName)}</span>
-        <span class="cell-sub">${appointment.serviceDurationMinutes} мин</span>
+        <span class="cell-sub">${appointment.serviceDurationMinutes} ${t('мин')}</span>
       </td>
       <td class="nowrap">
         <span class="cell-main">${formatDate(appointment.startTime)}</span>
         <span class="cell-sub">${formatTime(appointment.startTime)}–${formatTime(appointment.endTime)}</span>
       </td>
-      <td class="num">${formatMoney(appointment.price)}</td>
-      <td>${statusBadge(appointment.status, appointment.statusLabel)}</td>
+      <td class="num">${formatMoney(appointment.price)}<div class="mt-8">${paymentBadge(appointment.paymentStatus)}</div></td>
+      <td>${statusBadge(appointment.status)}</td>
       <td>
         <div class="actions">
-          <button type="button" class="icon-action" data-view="${appointment.id}" title="Открыть карточку" aria-label="Открыть запись">${icon('eye')}</button>
-          ${canReschedule ? `<button type="button" class="icon-action" data-reschedule="${appointment.id}" title="Перенести" aria-label="Перенести запись">${icon('calendar')}</button>` : ''}
-          ${canComplete ? `<button type="button" class="icon-action" data-complete="${appointment.id}" title="Завершить приём" aria-label="Завершить приём">${icon('check-circle')}</button>` : ''}
-          ${canNoShow ? `<button type="button" class="icon-action danger" data-no-show="${appointment.id}" title="Не явился" aria-label="Отметить неявку">${icon('user')}</button>` : ''}
-          ${canReferral ? `<button type="button" class="icon-action" data-referral="${appointment.id}" title="Выписать направление" aria-label="Выписать направление">${icon('referrals')}</button>` : ''}
-          ${canCancelNow ? `<button type="button" class="icon-action danger" data-cancel="${appointment.id}" title="Отменить" aria-label="Отменить запись">${icon('ban')}</button>` : ''}
+          <button type="button" class="icon-action" data-view="${appointment.id}" title="${t('Открыть карточку')}" aria-label="${t('Открыть запись')}">${icon('eye')}</button>
+          ${canReschedule ? `<button type="button" class="icon-action" data-reschedule="${appointment.id}" title="${t('Перенести')}" aria-label="${t('Перенести запись')}">${icon('calendar')}</button>` : ''}
+          ${canComplete ? `<button type="button" class="icon-action" data-complete="${appointment.id}" title="${t('Завершить приём')}" aria-label="${t('Завершить приём')}">${icon('check-circle')}</button>` : ''}
+          ${canNoShow ? `<button type="button" class="icon-action danger" data-no-show="${appointment.id}" title="${t('Не явился')}" aria-label="${t('Отметить неявку')}">${icon('user')}</button>` : ''}
+          ${canReferral ? `<button type="button" class="icon-action" data-referral="${appointment.id}" title="${t('Выписать направление')}" aria-label="${t('Выписать направление')}">${icon('referrals')}</button>` : ''}
+          ${canCancelNow ? `<button type="button" class="icon-action danger" data-cancel="${appointment.id}" title="${t('Отменить')}" aria-label="${t('Отменить запись')}">${icon('ban')}</button>` : ''}
         </div>
       </td>
     </tr>
@@ -204,10 +205,10 @@ function renderTable(appointments, user, callbacks) {
       <div class="table-empty">
         ${emptyState({
           iconName: 'search',
-          title: 'Записи не найдены',
-          text: 'Измените период или фильтры поиска. При необходимости создайте новую запись.',
+          title: t('Записи не найдены'),
+          text: t('Измените период или фильтры поиска. При необходимости создайте новую запись.'),
           action: canSchedule()
-            ? `<button type="button" class="btn btn-primary btn-sm" data-new-booking>${icon('plus')}<span>Новая запись</span></button>`
+            ? `<button type="button" class="btn btn-primary btn-sm" data-new-booking>${icon('plus')}<span>${t('Новая запись')}</span></button>`
             : '',
         })}
       </div>
@@ -218,13 +219,13 @@ function renderTable(appointments, user, callbacks) {
     <table class="table appointments-table">
       <thead>
         <tr>
-          <th>Пациент</th>
-          <th>Врач</th>
-          <th>Услуга</th>
-          <th>Дата и время</th>
-          <th class="num">Стоимость</th>
-          <th>Статус</th>
-          <th><span class="sr-only">Действия</span></th>
+          <th>${t('Пациент')}</th>
+          <th>${t('Врач')}</th>
+          <th>${t('Услуга')}</th>
+          <th>${t('Дата и время')}</th>
+          <th class="num">${t('Стоимость')}</th>
+          <th>${t('Статус')}</th>
+          <th><span class="sr-only">${t('Действия')}</span></th>
         </tr>
       </thead>
       <tbody>
@@ -264,22 +265,22 @@ export async function render(root, ctx) {
       <div class="page-toolbar">
         <div class="search-box">
           ${icon('search')}
-          <input class="input" type="search" id="appointments-search" placeholder="Поиск по пациенту, врачу или услуге" value="${esc(state.query)}">
+          <input class="input" type="search" id="appointments-search" placeholder="${t('Поиск по пациенту, врачу или услуге')}" value="${esc(state.query)}">
         </div>
         ${canFilterDoctor ? `
           <select class="select" id="appointments-doctor" style="min-width:200px">
-            <option value="">Все врачи</option>
+            <option value="">${t('Все врачи')}</option>
             ${allDoctorOptions(doctors, state.doctorId)}
           </select>
         ` : ''}
-        <label class="filter-label" for="appointments-from">Период</label>
+        <label class="filter-label" for="appointments-from">${t('Период')}</label>
         <input class="input" type="date" id="appointments-from" value="${esc(state.from)}" style="width:auto">
         <span class="muted">—</span>
         <input class="input" type="date" id="appointments-to" value="${esc(state.to)}" style="width:auto">
         <div class="spacer"></div>
-        <button type="button" class="btn btn-secondary btn-icon" id="appointments-refresh" title="Обновить">${icon('refresh')}</button>
+        <button type="button" class="btn btn-secondary btn-icon" id="appointments-refresh" title="${t('Обновить')}">${icon('refresh')}</button>
         ${canSchedule()
-          ? `<button type="button" class="btn btn-primary" id="appointments-new">${icon('plus')}<span>Новая запись</span></button>`
+          ? `<button type="button" class="btn btn-primary" id="appointments-new">${icon('plus')}<span>${t('Новая запись')}</span></button>`
           : ''}
       </div>
 
@@ -290,7 +291,7 @@ export async function render(root, ctx) {
         )}
         ${state.patientId ? `
           <span class="badge badge-soft" id="patient-filter-chip" style="padding:7px 11px">
-            Пациент: ${esc(state.patientName || `#${state.patientId}`)}
+            ${t('Пациент:')} ${esc(state.patientName || `#${state.patientId}`)}
             <button type="button" class="link-button" data-clear-patient style="margin-left:4px">${icon('x')}</button>
           </span>
         ` : ''}
@@ -299,12 +300,11 @@ export async function render(root, ctx) {
       <section class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">Журнал приёмов</div>
-            <div class="card-subtitle" data-result-count>Загружаем записи…</div>
+            <div class="card-title">${t('Журнал приёмов')}</div>
+            <div class="card-subtitle" data-result-count>${t('Загружаем записи…')}</div>
           </div>
-          <span class="metric-inline">${icon('database')} <span>REST API</span></span>
         </div>
-        <div class="table-wrap" data-table>${loadingState('Загружаем записи…')}</div>
+        <div class="table-wrap" data-table>${loadingState(t('Загружаем записи…'))}</div>
       </section>
     </div>
   `;
@@ -341,8 +341,8 @@ export async function render(root, ctx) {
   };
 
   async function loadRows() {
-    tableContainer.innerHTML = loadingState('Загружаем записи…');
-    countContainer.textContent = 'Загружаем записи…';
+    tableContainer.innerHTML = loadingState(t('Загружаем записи…'));
+    countContainer.textContent = t('Загружаем записи…');
     try {
       const appointments = await api.appointments.list({
         from: state.from,
@@ -354,12 +354,12 @@ export async function render(root, ctx) {
       });
       tableContainer.innerHTML = renderTable(appointments, ctx.user, {});
       countContainer.textContent = appointments.length
-        ? `${appointments.length} ${pluralRu(appointments.length, ['запись', 'записи', 'записей'])} за выбранный период`
-        : 'Ничего не найдено';
+        ? t('{0} {1} за выбранный период', [appointments.length, pluralRu(appointments.length, ['запись', 'записи', 'записей'])])
+        : t('Ничего не найдено');
       bindTableActions();
     } catch (error) {
       tableContainer.innerHTML = errorState(getErrorMessage(error));
-      countContainer.textContent = 'Ошибка загрузки';
+      countContainer.textContent = t('Ошибка загрузки');
       tableContainer.querySelector('[data-retry]')?.addEventListener('click', loadRows);
     }
   }
@@ -422,15 +422,15 @@ export async function openBooking(options = {}) {
   const formId = `booking-form-${Date.now()}`;
   let closed = false;
   const modal = openModal({
-    title: 'Новая запись на приём',
-    subtitle: 'Свободные слоты рассчитываются сервером с учётом смены врача',
+    title: t('Новая запись на приём'),
+    subtitle: t('Свободные слоты рассчитываются сервером с учётом смены врача'),
     size: 'lg',
-    body: loadingState('Загружаем врачей, пациентов и услуги…'),
+    body: loadingState(t('Загружаем врачей, пациентов и услуги…')),
     footer: `
       <span class="spacer"></span>
-      <button type="button" class="btn btn-secondary" data-cancel>Отмена</button>
+      <button type="button" class="btn btn-secondary" data-cancel>${t('Отмена')}</button>
       <button type="submit" form="${formId}" class="btn btn-primary" data-submit disabled>
-        ${icon('check')}<span>Создать запись</span>
+        ${icon('check')}<span>${t('Создать запись')}</span>
       </button>
     `,
     onClose: () => {
@@ -460,8 +460,8 @@ export async function openBooking(options = {}) {
   if (activeDoctors.length === 0 || activeServices.length === 0) {
     modal.body.innerHTML = emptyState({
       iconName: 'alert-circle',
-      title: 'Нет данных для записи',
-      text: 'Для создания записи нужен хотя бы один активный врач и одна активная услуга.',
+      title: t('Нет данных для записи'),
+      text: t('Для создания записи нужен хотя бы один активный врач и одна активная услуга.'),
     });
     return;
   }
@@ -475,46 +475,46 @@ export async function openBooking(options = {}) {
       <div class="form-alert hidden" data-form-alert role="alert"></div>
       <div class="form-grid">
         <div class="field">
-          <label for="${formId}-doctor">Врач</label>
+          <label for="${formId}-doctor">${t('Врач')}</label>
           <select class="select" id="${formId}-doctor" name="doctorId" required>
             ${doctorOptions(doctors, initialDoctor)}
           </select>
         </div>
         <div class="field">
-          <label for="${formId}-service">Услуга</label>
+          <label for="${formId}-service">${t('Услуга')}</label>
           <select class="select" id="${formId}-service" name="serviceId" required>
             ${serviceOptions(services, initialService)}
           </select>
         </div>
         <div class="field">
-          <label for="${formId}-patient">Пациент</label>
+          <label for="${formId}-patient">${t('Пациент')}</label>
           <div class="flex gap-8">
             <select class="select" id="${formId}-patient" name="patientId" required style="flex:1">
-              <option value="">Выберите пациента</option>
+              <option value="">${t('Выберите пациента')}</option>
               ${patientOptions(patients, selectedPatient)}
             </select>
-            <button type="button" class="btn btn-secondary btn-icon" data-add-patient title="Добавить пациента" aria-label="Добавить пациента">${icon('user-plus')}</button>
+            <button type="button" class="btn btn-secondary btn-icon" data-add-patient title="${t('Добавить пациента')}" aria-label="${t('Добавить пациента')}">${icon('user-plus')}</button>
           </div>
         </div>
         <div class="field">
-          <label for="${formId}-date">Дата приёма</label>
+          <label for="${formId}-date">${t('Дата приёма')}</label>
           <input class="input" type="date" id="${formId}-date" name="date" min="${todayISO()}" value="${esc(presetDate)}" required>
         </div>
       </div>
 
       <div class="field">
         <div data-slots>
-          <div class="slots-loading"><span class="spinner"></span><span>Подбираем свободное время…</span></div>
+          <div class="slots-loading"><span class="spinner"></span><span>${t('Подбираем свободное время…')}</span></div>
         </div>
       </div>
 
       <div class="booking-summary" data-summary>
-        <span>${icon('info')} Выберите свободный слот, чтобы завершить запись</span>
+        <span>${icon('info')} ${t('Выберите свободный слот, чтобы завершить запись')}</span>
       </div>
 
       <div class="field">
-        <label for="${formId}-notes">Комментарий</label>
-        <textarea class="textarea" id="${formId}-notes" name="notes" maxlength="500" placeholder="Например: первичный приём, жалобы на самочувствие"></textarea>
+        <label for="${formId}-notes">${t('Комментарий')}</label>
+        <textarea class="textarea" id="${formId}-notes" name="notes" maxlength="500" placeholder="${t('Например: первичный приём, жалобы на самочувствие')}"></textarea>
       </div>
 
       <input type="hidden" name="startTime" value="">
@@ -543,16 +543,16 @@ export async function openBooking(options = {}) {
     const doctor = currentDoctor();
     const service = currentService();
     if (!doctor || !service) {
-      summary.innerHTML = `<span>${icon('info')} Выберите врача и услугу</span>`;
+      summary.innerHTML = `<span>${icon('info')} ${t('Выберите врача и услугу')}</span>`;
       return;
     }
     summary.innerHTML = `
       <span>${icon('briefcase')} ${esc(service.name)}</span>
-      <span>${icon('clock')} ${service.durationMinutes} мин</span>
+      <span>${icon('clock')} ${service.durationMinutes} ${t('мин')}</span>
       <span>${icon('wallet')} ${formatMoney(service.price)}</span>
       ${selectedSlot
         ? `<span>${icon('calendar')} ${formatDateLong(dateInput.value)} · ${formatTime(selectedSlot.startTime)}–${formatTime(selectedSlot.endTime)}</span>`
-        : `<span>${icon('calendar')} ${esc(doctor.fullName)} · выберите время</span>`}
+        : `<span>${icon('calendar')} ${esc(doctor.fullName)} · ${t('выберите время')}</span>`}
     `;
   };
 
@@ -561,11 +561,11 @@ export async function openBooking(options = {}) {
     startInput.value = '';
     updateSummary();
     if (!doctorSelect.value || !dateInput.value) {
-      slotsContainer.innerHTML = '<div class="slots-message">Выберите врача и дату приёма</div>';
+      slotsContainer.innerHTML = `<div class="slots-message">${t('Выберите врача и дату приёма')}</div>`;
       return;
     }
     const sequence = ++requestSequence;
-    slotsContainer.innerHTML = '<div class="slots-loading"><span class="spinner"></span><span>Проверяем доступность врача…</span></div>';
+    slotsContainer.innerHTML = `<div class="slots-loading"><span class="spinner"></span><span>${t('Проверяем доступность врача…')}</span></div>`;
     try {
       const availability = await api.doctors.availability(doctorSelect.value, {
         date: dateInput.value,
@@ -596,7 +596,7 @@ export async function openBooking(options = {}) {
   serviceSelect.addEventListener('change', loadSlots);
   dateInput.addEventListener('change', () => {
     if (!dateInput.value) {
-      slotsContainer.innerHTML = '<div class="slots-message">Выберите дату приёма</div>';
+      slotsContainer.innerHTML = `<div class="slots-message">${t('Выберите дату приёма')}</div>`;
       return;
     }
     loadSlots();
@@ -608,7 +608,7 @@ export async function openBooking(options = {}) {
         if (!patient) return;
         const option = document.createElement('option');
         option.value = String(patient.id);
-        option.textContent = `${patient.fullName} · ${patient.phone}`;
+        option.textContent = `${patient.fullName} · ${patient.iin}`;
         patientSelect.appendChild(option);
         patientSelect.value = String(patient.id);
       },
@@ -621,18 +621,18 @@ export async function openBooking(options = {}) {
     event.preventDefault();
     clearFieldErrors(form);
     if (!patientSelect.value) {
-      showFormAlert(form, 'Выберите пациента для записи');
+      showFormAlert(form, t('Выберите пациента для записи'));
       patientSelect.classList.add('is-invalid');
       patientSelect.focus();
       return;
     }
     if (!startInput.value) {
-      showFormAlert(form, 'Выберите свободное время из доступных слотов');
+      showFormAlert(form, t('Выберите свободное время из доступных слотов'));
       slotsContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
-    setButtonLoading(submitButton, true, 'Создаём запись…');
+    setButtonLoading(submitButton, true, t('Создаём запись…'));
     try {
       const created = await api.appointments.create({
         doctorId: Number(doctorSelect.value),
@@ -642,7 +642,7 @@ export async function openBooking(options = {}) {
         notes: form.elements.namedItem('notes').value.trim() || null,
       });
       modal.close();
-      toast(`${created.patientName}: ${formatDateLong(created.startTime)}, ${formatTime(created.startTime)}`, 'success', 'Запись создана');
+      toast(`${created.patientName}: ${formatDateLong(created.startTime)}, ${formatTime(created.startTime)}`, 'success', t('Запись создана'));
       onDone?.(created);
       document.dispatchEvent(new CustomEvent('appointments:changed', { detail: created }));
     } catch (error) {
@@ -671,7 +671,7 @@ export async function openReschedule(id, options = {}) {
     return;
   }
   if (appointment.status !== 'SCHEDULED') {
-    toast('Перенести можно только запланированный приём', 'error');
+    toast(t('Перенести можно только запланированный приём'), 'error');
     return;
   }
 
@@ -686,7 +686,7 @@ export async function openReschedule(id, options = {}) {
   const formId = `reschedule-form-${Date.now()}`;
   let closed = false;
   const modal = openModal({
-    title: 'Перенести приём',
+    title: t('Перенести приём'),
     subtitle: `${appointment.patientName} · ${appointment.doctorName}`,
     size: 'lg',
     body: `
@@ -694,29 +694,29 @@ export async function openReschedule(id, options = {}) {
         <div class="form-alert hidden" data-form-alert role="alert"></div>
         <div class="detail-grid">
           <div class="detail-item">
-            <span class="detail-label">Врач</span>
-            <span class="detail-value">${esc(appointment.doctorName)}<br><span class="muted">${esc(appointment.doctorSpecialization)}${appointment.doctorOffice ? ` · каб. ${esc(appointment.doctorOffice)}` : ''}</span></span>
+            <span class="detail-label">${t('Врач')}</span>
+            <span class="detail-value">${esc(appointment.doctorName)}<br><span class="muted">${esc(appointment.doctorSpecialization)}${appointment.doctorOffice ? ` · ${t('каб. {0}', [esc(appointment.doctorOffice)])}` : ''}</span></span>
           </div>
           <div class="detail-item">
-            <span class="detail-label">Услуга</span>
-            <span class="detail-value">${esc(appointment.serviceName)}<br><span class="muted">${appointment.serviceDurationMinutes} мин · ${formatMoney(appointment.price)}</span></span>
+            <span class="detail-label">${t('Услуга')}</span>
+            <span class="detail-value">${esc(appointment.serviceName)}<br><span class="muted">${appointment.serviceDurationMinutes} ${t('мин')} · ${formatMoney(appointment.price)}</span></span>
           </div>
           <div class="detail-item">
-            <span class="detail-label">Текущее время</span>
+            <span class="detail-label">${t('Текущее время')}</span>
             <span class="detail-value">${formatDateLong(appointment.startTime)}<br><span class="muted">${formatTime(appointment.startTime)}–${formatTime(appointment.endTime)}</span></span>
           </div>
           <div class="field">
-            <label for="${formId}-date">Новая дата</label>
+            <label for="${formId}-date">${t('Новая дата')}</label>
             <input class="input" type="date" id="${formId}-date" name="date" min="${todayISO()}" value="${appointment.startTime.slice(0, 10)}" required>
           </div>
         </div>
 
         <div data-slots>
-          <div class="slots-loading"><span class="spinner"></span><span>Проверяем доступность врача…</span></div>
+          <div class="slots-loading"><span class="spinner"></span><span>${t('Проверяем доступность врача…')}</span></div>
         </div>
 
         <div class="field">
-          <label for="${formId}-notes">Комментарий</label>
+          <label for="${formId}-notes">${t('Комментарий')}</label>
           <textarea class="textarea" id="${formId}-notes" name="notes" maxlength="500">${esc(appointment.notes || '')}</textarea>
         </div>
 
@@ -725,9 +725,9 @@ export async function openReschedule(id, options = {}) {
     `,
     footer: `
       <span class="spacer"></span>
-      <button type="button" class="btn btn-secondary" data-cancel>Отмена</button>
+      <button type="button" class="btn btn-secondary" data-cancel>${t('Отмена')}</button>
       <button type="submit" form="${formId}" class="btn btn-primary" data-submit>
-        ${icon('check')}<span>Перенести</span>
+        ${icon('check')}<span>${t('Перенести')}</span>
       </button>
     `,
     onClose: () => {
@@ -747,11 +747,11 @@ export async function openReschedule(id, options = {}) {
     selectedSlot = null;
     startInput.value = '';
     if (!dateInput.value) {
-      slotsContainer.innerHTML = '<div class="slots-message">Выберите новую дату</div>';
+      slotsContainer.innerHTML = `<div class="slots-message">${t('Выберите новую дату')}</div>`;
       return;
     }
     const current = ++sequence;
-    slotsContainer.innerHTML = '<div class="slots-loading"><span class="spinner"></span><span>Проверяем доступность врача…</span></div>';
+    slotsContainer.innerHTML = `<div class="slots-loading"><span class="spinner"></span><span>${t('Проверяем доступность врача…')}</span></div>`;
     try {
       const availability = await api.doctors.availability(appointment.doctorId, {
         date: dateInput.value,
@@ -782,17 +782,17 @@ export async function openReschedule(id, options = {}) {
     event.preventDefault();
     clearFieldErrors(form);
     if (!startInput.value) {
-      showFormAlert(form, 'Выберите новое время из доступных слотов');
+      showFormAlert(form, t('Выберите новое время из доступных слотов'));
       return;
     }
-    setButtonLoading(submitButton, true, 'Переносим запись…');
+    setButtonLoading(submitButton, true, t('Переносим запись…'));
     try {
       const updated = await api.appointments.reschedule(id, {
         startTime: startInput.value,
         notes: form.elements.namedItem('notes').value.trim() || null,
       });
       modal.close();
-      toast(`${formatDateLong(updated.startTime)}, ${formatTime(updated.startTime)}`, 'success', 'Приём перенесён');
+      toast(`${formatDateLong(updated.startTime)}, ${formatTime(updated.startTime)}`, 'success', t('Приём перенесён'));
       onDone?.(updated);
       document.dispatchEvent(new CustomEvent('appointments:changed', { detail: updated }));
     } catch (error) {
@@ -823,7 +823,7 @@ export async function openCancel(id, options = {}) {
 
   const formId = `cancel-form-${Date.now()}`;
   const modal = openModal({
-    title: 'Отменить запись',
+    title: t('Отменить запись'),
     subtitle: `${appointment.patientName} · ${formatDateLong(appointment.startTime)}, ${formatTime(appointment.startTime)}`,
     size: 'sm',
     body: `
@@ -831,19 +831,19 @@ export async function openCancel(id, options = {}) {
         <div class="form-alert hidden" data-form-alert role="alert"></div>
         <div class="info-note">
           ${icon('alert-circle')}
-          <span>Слот освободится и станет доступен для новой записи. Действие изменит статус приёма на «Отменён».</span>
+          <span>${t('Слот освободится и станет доступен для новой записи. Действие изменит статус приёма на «Отменён».')}</span>
         </div>
         <div class="field">
-          <label for="${formId}-reason">Причина отмены <span class="muted">(необязательно)</span></label>
-          <textarea class="textarea" id="${formId}-reason" name="reason" maxlength="500" placeholder="Например: пациент перенёс визит"></textarea>
+          <label for="${formId}-reason">${t('Причина отмены')} <span class="muted">${t('(необязательно)')}</span></label>
+          <textarea class="textarea" id="${formId}-reason" name="reason" maxlength="500" placeholder="${t('Например: пациент перенёс визит')}"></textarea>
         </div>
       </form>
     `,
     footer: `
       <span class="spacer"></span>
-      <button type="button" class="btn btn-secondary" data-close>Назад</button>
+      <button type="button" class="btn btn-secondary" data-close>${t('Назад')}</button>
       <button type="submit" form="${formId}" class="btn btn-danger" data-submit>
-        ${icon('ban')}<span>Отменить запись</span>
+        ${icon('ban')}<span>${t('Отменить запись')}</span>
       </button>
     `,
   });
@@ -854,11 +854,11 @@ export async function openCancel(id, options = {}) {
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    setButtonLoading(submitButton, true, 'Отменяем…');
+    setButtonLoading(submitButton, true, t('Отменяем…'));
     try {
       const updated = await api.appointments.cancel(id, form.elements.namedItem('reason').value.trim());
       modal.close();
-      toast(`${appointment.patientName}: ${formatDateLong(appointment.startTime)}`, 'success', 'Запись отменена');
+      toast(`${appointment.patientName}: ${formatDateLong(appointment.startTime)}`, 'success', t('Запись отменена'));
       onDone?.(updated);
       document.dispatchEvent(new CustomEvent('appointments:changed', { detail: updated }));
     } catch (error) {
@@ -871,23 +871,25 @@ export async function openCancel(id, options = {}) {
 
 export async function markNoShow(id, onDone) {
   const confirmed = await confirmDialog({
-    title: 'Отметить неявку?',
-    message: 'Приём получит статус «Не явился». Вернуть его в работу можно будет только через администратора.',
-    confirmText: 'Не явился',
-    cancelText: 'Назад',
+    title: t('Отметить неявку?'),
+    message: t('Приём получит статус «Не явился». Вернуть его в работу можно будет только через администратора.'),
+    confirmText: t('Не явился'),
+    cancelText: t('Назад'),
     danger: true,
     iconName: 'user',
   });
   if (!confirmed) {
-    return;
+    return false;
   }
   try {
     const updated = await api.appointments.noShow(id);
-    toast(`Приём № ${id}: ${updated.statusLabel}`, 'success', 'Неявка отмечена');
+    toast(t('Приём № {0}: {1}', [id, updated.statusLabel]), 'success', t('Неявка отмечена'));
     onDone?.(updated);
     document.dispatchEvent(new CustomEvent('appointments:changed', { detail: updated }));
+    return true;
   } catch (error) {
     toast(getErrorMessage(error), 'error');
+    return false;
   }
 }
 
@@ -895,148 +897,175 @@ export async function openReferralForm(appointmentId, options = {}) {
   const { onDone = null } = options;
   let doctors = [];
   let specializations = [];
+  let services = [];
+  let me = null;
   try {
-    [doctors, specializations] = await Promise.all([
-      api.doctors.list(),
-      api.specializations.list(),
+    let appointment;
+    [doctors, specializations, services, appointment] = await Promise.all([
+      api.doctors.list(), api.specializations.list(), api.services.list(), api.appointments.get(appointmentId),
     ]);
+    me = doctors.find((doctor) => doctor.id === appointment.doctorId);
+    doctors = doctors.filter((doctor) => doctor.active && doctor.id !== appointment.doctorId);
+    specializations = specializations.filter((item) => item.active);
+    services = services.filter((item) => item.active);
   } catch (error) {
-    toast(getErrorMessage(error), 'error', 'Не удалось загрузить справочники');
+    toast(getErrorMessage(error), 'error', t('Не удалось загрузить справочники'));
     return;
   }
+  const diagnostics = services.filter((item) => item.diagnostic);
+  const consultations = services.filter((item) => !item.diagnostic);
 
   const formId = `referral-form-${Date.now()}`;
+  const option = (value, label) => `<option value="${value}">${esc(label)}</option>`;
   const modal = openModal({
-    title: 'Электронное направление',
-    subtitle: `Приём № ${appointmentId} · данные фиксируются в общей базе`,
+    title: t('Электронное направление'),
+    subtitle: t('Приём № {0}', [appointmentId]),
     size: 'lg',
     body: `
       <form id="${formId}" class="modal-enter" novalidate>
         <div class="form-alert hidden" data-form-alert role="alert"></div>
+        <div class="detail-total"><span><span class="detail-label">${t('От кого')}</span>
+          <b style="font-weight:600">${esc(me?.fullName || '')}</b><br>${esc(me?.specializationName || '')} · ${t('каб. {0}', [esc(me?.office || '—')])}</span></div>
         <div class="field">
-          <label>К кому *</label>
-          <div class="flex items-center gap-16" style="padding-top:4px">
-            <label class="radio-label"><input type="radio" name="targetType" value="specialty" checked> Специальность</label>
-            <label class="radio-label"><input type="radio" name="targetType" value="doctor"> Конкретный врач</label>
+          <span class="field-label">${t('Куда направить')}</span>
+          <div class="flex items-center gap-16 flex-wrap">
+            <label class="radio-label"><input type="radio" name="targetType" value="doctor" checked> <span>${t('К врачу')}</span></label>
+            <label class="radio-label"><input type="radio" name="targetType" value="department"> <span>${t('В отделение')}</span></label>
+            <label class="radio-label"><input type="radio" name="targetType" value="diagnostic"> <span>${t('На диагностику или анализы')}</span></label>
           </div>
         </div>
-        <div class="form-grid mt-16">
-          <div class="field" data-target-specialty>
-            <label for="${formId}-specialization">Специальность *</label>
-            <select class="select" id="${formId}-specialization" name="toSpecializationId">
-              ${specializations.map((item) => `<option value="${item.id}">${esc(item.name)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field hidden" data-target-doctor>
-            <label for="${formId}-doctor">Врач *</label>
-            <select class="select" id="${formId}-doctor" name="toDoctorId">
-              ${doctors.map((item) => `<option value="${item.id}">${esc(item.fullName)} · ${esc(item.specializationName || '')}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field">
-            <label for="${formId}-department">Отделение</label>
-            <input class="input" id="${formId}-department" name="department" maxlength="120" placeholder="Например, Кардиология">
-          </div>
-          <div class="field">
-            <label for="${formId}-office">Кабинет</label>
-            <input class="input" id="${formId}-office" name="office" maxlength="30" placeholder="Например, 201">
-          </div>
-          <div class="field span-2">
-            <label for="${formId}-reason">Причина направления</label>
-            <textarea class="input" id="${formId}-reason" name="reason" rows="3" maxlength="500" placeholder="Краткое описание цели консультации"></textarea>
-          </div>
+        <div class="form-grid">
+          <div class="field" data-for="doctor"><label for="${formId}-doctor">${t('Врач *')}</label>
+            <select class="select" id="${formId}-doctor" name="toDoctorId">${doctors.map((item) => option(item.id, `${item.fullName} · ${item.specializationName} · ${t('каб. {0}', [item.office])}`)).join('')}</select></div>
+          <div class="field hidden" data-for="department"><label for="${formId}-specialization">${t('Отделение *')}</label>
+            <select class="select" id="${formId}-specialization" name="toSpecializationId">${specializations.map((item) => option(item.id, item.name)).join('')}</select></div>
+          <div class="field hidden span-2" data-for="diagnostic"><label for="${formId}-diagnostic">${t('Исследование *')}</label>
+            <select class="select" id="${formId}-diagnostic" name="diagnosticId">${diagnostics.map((item) => option(item.id, `${item.name} · ${item.specializationName || ''} · ${t('каб. {0}', [item.office || '—'])} · ${formatMoney(item.price)}`)).join('')}</select></div>
+          <div class="field" data-for="doctor department"><label for="${formId}-service">${t('Услуга')}</label>
+            <select class="select" id="${formId}-service" name="serviceId">${consultations.map((item) => option(item.id, `${item.name} · ${formatMoney(item.price)}`)).join('')}</select></div>
+          <div class="field span-2"><label for="${formId}-reason">${t('Причина и цель направления *')}</label>
+            <textarea class="textarea" id="${formId}-reason" name="reason" maxlength="500"></textarea></div>
         </div>
-        <div class="callout mt-16">
-          ${icon('info')}
-          <span>Если отделение и кабинет не указать, они будут заполнены автоматически из профиля врача или специальности.</span>
-        </div>
-      </form>
-    `,
-    footer: `<span class="spacer"></span><button type="button" class="btn btn-secondary" data-close>Отмена</button>
-             <button type="button" class="btn btn-primary" data-save>${icon('referrals')}<span>Выписать</span></button>`,
+      </form>`,
+    footer: `
+      <button type="button" class="btn btn-secondary" data-close>${t('Отмена')}</button>
+      <button type="submit" form="${formId}" class="btn btn-primary" data-save><span>${t('Выписать')}</span></button>`,
   });
 
   const form = modal.body.querySelector('form');
-  const specialtyField = modal.body.querySelector('[data-target-specialty]');
-  const doctorField = modal.body.querySelector('[data-target-doctor]');
-
-  form.querySelectorAll('[name="targetType"]').forEach((radio) => {
-    radio.addEventListener('change', () => {
-      const byDoctor = form.querySelector('[name="targetType"]:checked').value === 'doctor';
-      specialtyField.classList.toggle('hidden', byDoctor);
-      doctorField.classList.toggle('hidden', !byDoctor);
-    });
+  const save = modal.footer.querySelector('[data-save]');
+  const targetType = () => form.querySelector('[name="targetType"]:checked').value;
+  const syncTarget = () => form.querySelectorAll('[data-for]').forEach((element) => {
+    element.classList.toggle('hidden', !element.dataset.for.split(' ').includes(targetType()));
   });
-
+  form.querySelectorAll('[name="targetType"]').forEach((radio) => radio.addEventListener('change', syncTarget));
   modal.footer.querySelector('[data-close]').addEventListener('click', () => modal.close());
-  modal.footer.querySelector('[data-save]').addEventListener('click', async (event) => {
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
     clearFieldErrors(form);
-    const button = event.currentTarget;
-    const byDoctor = form.querySelector('[name="targetType"]:checked').value === 'doctor';
-    const payload = {
-      appointmentId,
-      department: formValue(form, 'department') || null,
-      office: formValue(form, 'office') || null,
-      reason: formValue(form, 'reason') || null,
-    };
-    if (byDoctor) {
-      payload.toDoctorId = Number(formValue(form, 'toDoctorId'));
+    const type = targetType();
+    const payload = { appointmentId, reason: formValue(form, 'reason') || null };
+    if (type === 'diagnostic') {
+      payload.serviceId = Number(formValue(form, 'diagnosticId')) || null;
     } else {
-      payload.toSpecializationId = Number(formValue(form, 'toSpecializationId'));
+      payload.serviceId = Number(formValue(form, 'serviceId')) || null;
+      if (type === 'doctor') payload.toDoctorId = Number(formValue(form, 'toDoctorId')) || null;
+      else payload.toSpecializationId = Number(formValue(form, 'toSpecializationId')) || null;
     }
-    setButtonLoading(button, true, 'Сохраняем…');
+    setButtonLoading(save, true, t('Сохраняем…'));
     try {
       const created = await api.referrals.create(payload);
       modal.close();
-      toast(`Направление № ${created.id} выписано`, 'success', 'Доступно врачу-получателю');
+      toast(t('Направление № {0} передано получателю и видно пациенту', [created.id]), 'success', t('Направление выписано'));
       onDone?.(created);
       document.dispatchEvent(new CustomEvent('referrals:changed', { detail: created }));
     } catch (error) {
       showFormAlert(form, getErrorMessage(error));
       applyFieldErrors(form, error?.fieldErrors);
     } finally {
-      setButtonLoading(button, false);
+      setButtonLoading(save, false);
     }
   });
 }
 
+/** Closes the visit: the status "attended" is stored together with the doctor's conclusion. */
 export async function openComplete(id, options = {}) {
   const { onDone = null } = options;
-  const confirmed = await confirmDialog({
-    title: 'Завершить приём?',
-    message: 'Приём будет отмечен как завершённый, а его стоимость войдёт в отчёты о выручке.',
-    confirmText: 'Завершить приём',
-    cancelText: 'Назад',
-    danger: false,
-    iconName: 'check-circle',
-  });
-  if (!confirmed) {
-    return;
-  }
+  let appointment;
   try {
-    const updated = await api.appointments.complete(id);
-    toast(`${updated.patientName}: ${formatDateLong(updated.startTime)}`, 'success', 'Приём завершён');
-    onDone?.(updated);
-    document.dispatchEvent(new CustomEvent('appointments:changed', { detail: updated }));
+    appointment = await api.appointments.get(id);
   } catch (error) {
     toast(getErrorMessage(error), 'error');
+    return;
   }
+  const formId = `complete-form-${Date.now()}`;
+  const modal = openModal({
+    title: t('Приём прошел'),
+    subtitle: `${appointment.patientName} · ${t('ИИН {0}', [appointment.patientIin])}`,
+    size: 'lg',
+    body: `
+      <form id="${formId}" class="modal-enter" novalidate>
+        <div class="form-alert hidden" data-form-alert role="alert"></div>
+        <div class="field"><label for="${formId}-diagnosis">${t('Диагноз *')}</label>
+          <input class="input" id="${formId}-diagnosis" name="diagnosis" maxlength="500"></div>
+        <div class="field"><label for="${formId}-conclusion">${t('Заключение врача *')}</label>
+          <textarea class="textarea" id="${formId}-conclusion" name="conclusion" rows="4" maxlength="2000"></textarea></div>
+        <div class="field"><label for="${formId}-recommendations">${t('Рекомендации')}</label>
+          <textarea class="textarea" id="${formId}-recommendations" name="recommendations" maxlength="2000"></textarea></div>
+        <div><button type="button" class="btn btn-secondary btn-sm" data-referral>${icon('referrals')}<span>${t('Выписать направление')}</span></button></div>
+        <div class="callout">${icon('info')}<span>${t('После сохранения визит закроется, попадёт в историю пациента, и пациент сможет скачать справку.')}</span></div>
+      </form>`,
+    footer: `
+      <button type="button" class="btn btn-danger-soft" data-no-show>${t('Не явился')}</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-secondary" data-close>${t('Отмена')}</button>
+      <button type="submit" form="${formId}" class="btn btn-primary" data-save><span>${t('Сохранить: прошел')}</span></button>`,
+  });
+  const form = modal.body.querySelector('form');
+  const save = modal.footer.querySelector('[data-save]');
+  modal.footer.querySelector('[data-close]').addEventListener('click', () => modal.close());
+  modal.footer.querySelector('[data-no-show]').addEventListener('click', async () => {
+    if (await markNoShow(id, onDone)) modal.close();
+  });
+  form.querySelector('[data-referral]').addEventListener('click', () => openReferralForm(id));
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    clearFieldErrors(form);
+    setButtonLoading(save, true, t('Сохраняем…'));
+    try {
+      const updated = await api.appointments.complete(id, {
+        diagnosis: formValue(form, 'diagnosis') || null,
+        conclusion: formValue(form, 'conclusion') || null,
+        recommendations: formValue(form, 'recommendations') || null,
+      });
+      modal.close();
+      toast(`${updated.patientName}: ${formatDateLong(updated.startTime)}`, 'success', t('Приём завершён'));
+      onDone?.(updated);
+      document.dispatchEvent(new CustomEvent('appointments:changed', { detail: updated }));
+    } catch (error) {
+      showFormAlert(form, getErrorMessage(error));
+      applyFieldErrors(form, error?.fieldErrors);
+    } finally {
+      setButtonLoading(save, false);
+    }
+  });
 }
 
 export async function openDetails(id, options = {}) {
   const { onChanged = null } = options;
   const modal = openModal({
-    title: 'Карточка приёма',
-    subtitle: 'Подробности визита и доступные действия',
+    title: t('Карточка приёма'),
+    subtitle: t('Подробности визита и доступные действия'),
     size: 'lg',
-    body: loadingState('Загружаем карточку приёма…'),
-    footer: `<span class="spacer"></span><button type="button" class="btn btn-secondary" data-close>Закрыть</button>`,
+    body: loadingState(t('Загружаем карточку приёма…')),
+    footer: `<span class="spacer"></span><button type="button" class="btn btn-secondary" data-close>${t('Закрыть')}</button>`,
   });
   modal.footer.querySelector('[data-close]').addEventListener('click', () => modal.close());
 
   let appointment;
+  let referrals = [];
   try {
-    appointment = await api.appointments.get(id);
+    [appointment, referrals] = await Promise.all([api.appointments.get(id), api.appointments.referrals(id)]);
   } catch (error) {
     modal.body.innerHTML = errorState(getErrorMessage(error), { retry: false });
     return;
@@ -1057,65 +1086,74 @@ export async function openDetails(id, options = {}) {
   const canNoShowNow = appointment.status === 'SCHEDULED'
     && new Date(appointment.startTime) <= new Date()
     && (user?.role === 'ADMIN' || isOwnDoctor);
-  const canReferralNow = (appointment.status === 'SCHEDULED' || appointment.status === 'COMPLETED')
-    && (user?.role === 'ADMIN' || isOwnDoctor);
+  const canReferralNow = ['SCHEDULED', 'COMPLETED'].includes(appointment.status) && isOwnDoctor;
 
   modal.body.innerHTML = `
     <div class="detail-status-row">
       <div class="flex items-center gap-8">
-        ${statusBadge(appointment.status, appointment.statusLabel)}
-        ${appointment.completedAt ? `<span class="muted" style="font-size:11px">завершён ${formatDateTime(appointment.completedAt)}</span>` : ''}
-        ${appointment.cancelledAt ? `<span class="muted" style="font-size:11px">отменён ${formatDateTime(appointment.cancelledAt)}</span>` : ''}
+        ${statusBadge(appointment.status)}
+        ${appointment.completedAt ? `<span class="muted" style="font-size:11px">${t('завершён')} ${formatDateTime(appointment.completedAt)}</span>` : ''}
+        ${appointment.cancelledAt ? `<span class="muted" style="font-size:11px">${t('отменён')} ${formatDateTime(appointment.cancelledAt)}</span>` : ''}
       </div>
-      <span class="appointment-id">Запись № ${appointment.id}</span>
+      <span class="appointment-id">${t('Запись №')} ${appointment.id}</span>
     </div>
 
     <div class="detail-grid">
       <div class="detail-item">
-        <span class="detail-label">Пациент</span>
-        <span class="detail-value"><strong>${esc(appointment.patientName)}</strong><br>${esc(appointment.patientPhone || 'телефон не указан')}</span>
+        <span class="detail-label">${t('Пациент')}</span>
+        <span class="detail-value"><strong>${esc(appointment.patientName)}</strong><br>${t('ИИН {0}', [esc(appointment.patientIin)])}<br>${esc(appointment.patientPhone || '')}</span>
       </div>
       <div class="detail-item">
-        <span class="detail-label">Лечащий врач</span>
-        <span class="detail-value"><strong>${esc(appointment.doctorName)}</strong><br>${esc(appointment.doctorSpecialization)}${appointment.doctorOffice ? ` · каб. ${esc(appointment.doctorOffice)}` : ''}</span>
+        <span class="detail-label">${t('Лечащий врач')}</span>
+        <span class="detail-value"><strong>${esc(appointment.doctorName)}</strong><br>${esc(appointment.doctorSpecialization)}${appointment.doctorOffice ? ` · ${t('каб. {0}', [esc(appointment.doctorOffice)])}` : ''}</span>
       </div>
       <div class="detail-item">
-        <span class="detail-label">Услуга</span>
-        <span class="detail-value"><strong>${esc(appointment.serviceName)}</strong><br>${appointment.serviceDurationMinutes} мин</span>
+        <span class="detail-label">${t('Услуга')}</span>
+        <span class="detail-value"><strong>${esc(appointment.serviceName)}</strong><br>${appointment.serviceDurationMinutes} ${t('мин')}</span>
       </div>
       <div class="detail-item">
-        <span class="detail-label">Дата и время</span>
+        <span class="detail-label">${t('Дата и время')}</span>
         <span class="detail-value"><strong>${formatDateLong(appointment.startTime)}</strong><br>${formatTime(appointment.startTime)}–${formatTime(appointment.endTime)}</span>
       </div>
       <div class="detail-item">
-        <span class="detail-label">Стоимость</span>
-        <span class="detail-value"><strong>${formatMoney(appointment.price)}</strong></span>
-      </div>
-      <div class="detail-item">
-        <span class="detail-label">Создано</span>
+        <span class="detail-label">${t('Создано')}</span>
         <span class="detail-value">${appointment.createdAt ? formatDateTime(appointment.createdAt) : '—'}</span>
       </div>
     </div>
 
-    ${appointment.notes ? `<div class="mt-16"><span class="detail-label">Комментарий</span><div class="detail-note">${esc(appointment.notes)}</div></div>` : ''}
-    ${appointment.cancellationReason ? `<div class="mt-16"><span class="detail-label">Причина отмены</span><div class="detail-note">${esc(appointment.cancellationReason)}</div></div>` : ''}
+    ${appointment.notes ? `<div class="mt-16"><span class="detail-label">${t('Комментарий')}</span><div class="detail-note">${esc(appointment.notes)}</div></div>` : ''}
+    ${appointment.cancellationReason ? `<div class="mt-16"><span class="detail-label">${t('Причина отмены')}</span><div class="detail-note">${esc(appointment.cancellationReason)}</div></div>` : ''}
+    ${appointment.status === 'COMPLETED' ? `
+      <div class="mt-16"><span class="detail-label">${t('Диагноз')}</span><div class="detail-note">${esc(appointment.diagnosis || '—')}</div></div>
+      <div class="mt-16"><span class="detail-label">${t('Заключение врача')}</span><div class="detail-note">${esc(appointment.conclusion || '—')}</div></div>
+      ${appointment.recommendations ? `<div class="mt-16"><span class="detail-label">${t('Рекомендации')}</span><div class="detail-note">${esc(appointment.recommendations)}</div></div>` : ''}` : ''}
+    ${referrals.length ? `<div class="mt-16"><span class="detail-label">${t('Выданные направления')}</span>
+      <ul class="visit-referrals">${referrals.map((referral) => `<li>${esc([referral.serviceName, referral.toDoctorName || referral.toSpecializationName].filter(Boolean).join(', '))}: ${esc(referral.reason || '—')} ${referralStatusBadge(referral.status)}</li>`).join('')}</ul></div>` : ''}
     <div class="detail-total mt-16">
-      <span>Итоговая стоимость приёма</span>
+      <span class="flex items-center gap-12">${t('Стоимость приёма')} ${paymentBadge(appointment.paymentStatus)}</span>
       <strong>${formatMoney(appointment.price)}</strong>
     </div>
   `;
 
   modal.footer.innerHTML = `
     <span class="spacer"></span>
-    ${canReschedule ? `<button type="button" class="btn btn-secondary" data-reschedule>${icon('calendar')}<span>Перенести</span></button>` : ''}
-    ${canCancelNow ? `<button type="button" class="btn btn-danger-soft" data-cancel-appointment>${icon('ban')}<span>Отменить</span></button>` : ''}
-    ${canNoShowNow ? `<button type="button" class="btn btn-danger-soft" data-no-show-appointment>${icon('user')}<span>Не явился</span></button>` : ''}
-    ${canReferralNow ? `<button type="button" class="btn btn-secondary" data-referral-appointment>${icon('referrals')}<span>Направление</span></button>` : ''}
-    ${canCompleteNow ? `<button type="button" class="btn btn-primary" data-complete>${icon('check-circle')}<span>Завершить приём</span></button>` : ''}
-    <button type="button" class="btn btn-secondary" data-close>Закрыть</button>
+    ${canReschedule ? `<button type="button" class="btn btn-secondary" data-reschedule>${icon('calendar')}<span>${t('Перенести')}</span></button>` : ''}
+    ${canCancelNow ? `<button type="button" class="btn btn-danger-soft" data-cancel-appointment>${icon('ban')}<span>${t('Отменить')}</span></button>` : ''}
+    ${canNoShowNow ? `<button type="button" class="btn btn-danger-soft" data-no-show-appointment>${icon('user')}<span>${t('Не явился')}</span></button>` : ''}
+    ${canReferralNow ? `<button type="button" class="btn btn-secondary" data-referral-appointment>${icon('referrals')}<span>${t('Направление')}</span></button>` : ''}
+    ${appointment.status === 'COMPLETED' ? `<button type="button" class="btn btn-secondary" data-certificate>${icon('download')}<span>${t('Справка PDF')}</span></button>` : ''}
+    ${canCompleteNow ? `<button type="button" class="btn btn-primary" data-complete>${icon('check-circle')}<span>${t('Отметить: прошел')}</span></button>` : ''}
+    <button type="button" class="btn btn-secondary" data-close>${t('Закрыть')}</button>
   `;
   modal.footer.querySelector('[data-close]').addEventListener('click', () => modal.close());
 
+  modal.footer.querySelector('[data-certificate]')?.addEventListener('click', async () => {
+    try {
+      await api.appointments.certificate(appointment.id);
+    } catch (error) {
+      toast(getErrorMessage(error), 'error');
+    }
+  });
   modal.footer.querySelector('[data-reschedule]')?.addEventListener('click', () => {
     modal.close();
     openReschedule(appointment.id, { onDone: onChanged });

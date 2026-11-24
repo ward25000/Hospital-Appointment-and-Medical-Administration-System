@@ -14,8 +14,11 @@ import {
   showFormAlert,
   applyFieldErrors,
   formValue,
+  readAddress,
+  parseIin,
 } from './ui.js';
 import { store } from './store.js';
+import { LANGS, changeLang, getLang, loadDictionary, t, translateStatic } from './i18n.js';
 import * as dashboardView from './views/dashboard.js';
 import * as calendarView from './views/calendar.js';
 import * as appointmentsView from './views/appointments.js';
@@ -27,21 +30,21 @@ import * as reportsView from './views/reports.js';
 import * as patientProfileView from './views/patientProfile.js';
 import * as patientVisitsView from './views/patientVisits.js';
 import * as patientReferralsView from './views/patientReferrals.js';
+import * as patientPaymentsView from './views/patientPayments.js';
+import * as cashDeskView from './views/cashDesk.js';
 import * as referralInboxView from './views/referralInbox.js';
 
 const ROUTES = {
   dashboard: {
-    title: 'Дашборд',
-    subtitle: 'Ключевые показатели клиники и приёмы на сегодня',
-    breadcrumb: 'Обзор клиники',
+    title: 'Сегодня',
+    subtitle: 'Приёмы на сегодня и показатели месяца',
     module: dashboardView,
     roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'],
     nav: 'dashboard',
   },
   calendar: {
     title: 'Календарь приёмов',
-    subtitle: 'Загрузка врачей по дням и запись в свободные слоты',
-    breadcrumb: 'Расписание',
+    subtitle: 'Загрузка врачей по дням и запись на свободное время',
     module: calendarView,
     roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'],
     nav: 'calendar',
@@ -49,7 +52,6 @@ const ROUTES = {
   appointments: {
     title: 'Записи на приём',
     subtitle: 'Все визиты, статусы и управление записями',
-    breadcrumb: 'Работа с пациентами',
     module: appointmentsView,
     roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'],
     nav: 'appointments',
@@ -57,15 +59,13 @@ const ROUTES = {
   patients: {
     title: 'Пациенты',
     subtitle: 'Картотека пациентов клиники и история обращений',
-    breadcrumb: 'Работа с пациентами',
     module: patientsView,
     roles: ['ADMIN', 'RECEPTIONIST'],
     nav: 'patients',
   },
   doctors: {
     title: 'Врачи',
-    subtitle: 'Специалисты клиники, направления и контактные данные',
-    breadcrumb: 'Справочники',
+    subtitle: 'Специалисты клиники и их контакты',
     module: doctorsView,
     roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'],
     nav: 'doctors',
@@ -73,7 +73,6 @@ const ROUTES = {
   schedules: {
     title: 'Расписание врачей',
     subtitle: 'Недельные смены, интервалы приёма и доступность',
-    breadcrumb: 'Управление расписанием',
     module: schedulesView,
     roles: ['ADMIN', 'DOCTOR'],
     nav: 'schedules',
@@ -81,7 +80,6 @@ const ROUTES = {
   catalog: {
     title: 'Справочники',
     subtitle: 'Специализации и медицинские услуги клиники',
-    breadcrumb: 'Справочники',
     module: catalogView,
     roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'],
     nav: 'catalog',
@@ -89,23 +87,20 @@ const ROUTES = {
   reports: {
     title: 'Отчёты',
     subtitle: 'Статистика приёмов, нагрузка врачей и выручка за период',
-    breadcrumb: 'Аналитика',
     module: reportsView,
     roles: ['ADMIN', 'RECEPTIONIST'],
     nav: 'reports',
   },
   profile: {
     title: 'Мой профиль',
-    subtitle: 'Персональные данные и контактная информация пациента',
-    breadcrumb: 'Личный кабинет',
+    subtitle: 'Личные данные, адрес и контакты',
     module: patientProfileView,
     roles: ['PATIENT'],
     nav: 'profile',
   },
   visits: {
     title: 'История посещений',
-    subtitle: 'Прошлые и предстоящие визиты к врачам',
-    breadcrumb: 'Личный кабинет',
+    subtitle: 'Визиты, заключения врачей и справки',
     module: patientVisitsView,
     roles: ['PATIENT'],
     nav: 'visits',
@@ -113,15 +108,27 @@ const ROUTES = {
   referrals: {
     title: 'Мои направления',
     subtitle: 'Электронные направления, выписанные во время приёмов',
-    breadcrumb: 'Личный кабинет',
     module: patientReferralsView,
     roles: ['PATIENT'],
     nav: 'referrals',
   },
+  payments: {
+    title: 'Оплата',
+    subtitle: 'Счета за приёмы и направления, квитанции',
+    module: patientPaymentsView,
+    roles: ['PATIENT'],
+    nav: 'payments',
+  },
+  'cash-desk': {
+    title: 'Касса',
+    subtitle: 'Приём оплаты в клинике и журнал платежей',
+    module: cashDeskView,
+    roles: ['ADMIN', 'RECEPTIONIST'],
+    nav: 'cash-desk',
+  },
   'referral-inbox': {
-    title: 'Входящие направления',
-    subtitle: 'Направления от коллег, ожидающие вашей реакции',
-    breadcrumb: 'Рабочее место врача',
+    title: 'Направления',
+    subtitle: 'Пациенты, направленные к вам, и направления, выписанные вами',
     module: referralInboxView,
     roles: ['DOCTOR'],
     nav: 'referral-inbox',
@@ -132,9 +139,10 @@ const NAV_GROUPS = [
   {
     label: 'Клиника',
     items: [
-      { route: 'dashboard', label: 'Дашборд', icon: 'dashboard', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+      { route: 'dashboard', label: 'Сегодня', icon: 'dashboard', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
       { route: 'calendar', label: 'Календарь', icon: 'calendar', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
       { route: 'appointments', label: 'Записи', icon: 'appointments', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+      { route: 'cash-desk', label: 'Касса', icon: 'wallet', roles: ['ADMIN', 'RECEPTIONIST'] },
       { route: 'referral-inbox', label: 'Направления', icon: 'inbox', roles: ['DOCTOR'] },
     ],
   },
@@ -142,9 +150,9 @@ const NAV_GROUPS = [
     label: 'Управление',
     items: [
       { route: 'patients', label: 'Пациенты', icon: 'patients', roles: ['ADMIN', 'RECEPTIONIST'] },
-      { route: 'doctors', label: 'Врачи', icon: 'doctors' },
+      { route: 'doctors', label: 'Врачи', icon: 'doctors', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
       { route: 'schedules', label: 'Расписание', icon: 'schedules', roles: ['ADMIN', 'DOCTOR'] },
-      { route: 'catalog', label: 'Справочники', icon: 'catalog' },
+      { route: 'catalog', label: 'Справочники', icon: 'catalog', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
       { route: 'reports', label: 'Отчёты', icon: 'reports', roles: ['ADMIN', 'RECEPTIONIST'] },
     ],
   },
@@ -152,8 +160,9 @@ const NAV_GROUPS = [
     label: 'Личный кабинет',
     items: [
       { route: 'profile', label: 'Мой профиль', icon: 'profile', roles: ['PATIENT'] },
-      { route: 'visits', label: 'Мои визиты', icon: 'visits', roles: ['PATIENT'] },
+      { route: 'visits', label: 'История посещений', icon: 'visits', roles: ['PATIENT'] },
       { route: 'referrals', label: 'Мои направления', icon: 'referrals', roles: ['PATIENT'] },
+      { route: 'payments', label: 'Оплата', icon: 'wallet', roles: ['PATIENT'] },
     ],
   },
 ];
@@ -179,7 +188,7 @@ let healthTimer = null;
 let sessionExpiredHandlerBound = false;
 
 function defaultRouteName() {
-  return store.user?.role === 'PATIENT' ? 'profile' : 'dashboard';
+  return store.user?.role === 'PATIENT' ? 'visits' : 'dashboard';
 }
 
 function parseRoute() {
@@ -201,19 +210,18 @@ function renderForbidden(config) {
     <div class="card">
       <div class="empty-state">
         <span class="empty-icon">${icon('shield')}</span>
-        <strong>Раздел недоступен</strong>
-        <p>Ваша роль не позволяет открывать «${esc(config.title)}». Вернитесь в раздел по умолчанию или обратитесь к администратору.</p>
-        <a class="btn btn-secondary btn-sm" href="#/${defaultRouteName()}">${icon('arrow-right')}<span>На главную</span></a>
+        <strong>${t('Раздел недоступен')}</strong>
+        <p>${t('Для этого раздела нужны другие права доступа.')}</p>
+        <a class="btn btn-secondary btn-sm" href="#/${defaultRouteName()}">${icon('arrow-right')}<span>${t('На главную')}</span></a>
       </div>
     </div>
   `;
 }
 
 function updatePageMeta(config) {
-  document.getElementById('page-title').textContent = config.title;
-  document.getElementById('page-subtitle').textContent = config.subtitle;
-  document.getElementById('breadcrumbs').textContent = `MedFlow · ${config.breadcrumb}`;
-  document.title = `${config.title} — MedFlow`;
+  document.getElementById('page-title').textContent = t(config.title);
+  document.getElementById('page-subtitle').textContent = t(config.subtitle);
+  document.title = `${t(config.title)} | MedFlow`;
   navElement.querySelectorAll('.nav-item').forEach((item) => {
     item.classList.toggle('is-active', item.dataset.route === config.nav);
   });
@@ -287,11 +295,12 @@ function renderNav() {
       return '';
     }
     return `
-      ${index > 0 ? `<div class="sidebar-label" style="margin: 18px 10px 6px">${esc(group.label)}</div>` : ''}
+      ${index === 1 ? `<div class="sidebar-label">${t(group.label)}</div>` : ''}
       ${items.map((item) => `
         <a class="nav-item" href="#/${item.route}" data-route="${item.route}">
           ${icon(item.icon)}
-          <span>${esc(item.label)}</span>
+          <span>${t(item.label)}</span>
+          ${item.route === 'referral-inbox' ? '<span class="nav-badge hidden" id="referral-badge"></span>' : ''}
         </a>
       `).join('')}
     `;
@@ -300,27 +309,129 @@ function renderNav() {
 }
 
 function setUserInterface(user) {
-  const initialsAvatar = avatar(user.fullName, '');
-  const role = roleLabel(user.role);
-
-  document.getElementById('user-avatar').outerHTML = initialsAvatar
-    .replace('class="avatar ', `id="user-avatar" class="avatar `);
-  const dropdownAvatar = document.getElementById('dropdown-avatar');
-  if (dropdownAvatar) {
-    dropdownAvatar.outerHTML = avatar(user.fullName, 'avatar-lg')
-      .replace('class="avatar ', `id="dropdown-avatar" class="avatar `);
-  }
+  document.getElementById('user-avatar').outerHTML = avatar(user.fullName)
+    .replace('class="avatar ', 'id="user-avatar" class="avatar ');
   document.getElementById('user-name').textContent = user.fullName;
-  document.getElementById('user-role').textContent = role;
+  document.getElementById('user-role').textContent = roleLabel(user.role);
   document.getElementById('dropdown-name').textContent = user.fullName;
-  document.getElementById('dropdown-role').textContent = role;
+  document.getElementById('dropdown-role').textContent = roleLabel(user.role);
   document.getElementById('footer-date').textContent = formatDateLong(todayISO());
+}
+
+function renderLangSwitch() {
+  const container = document.getElementById('lang-switch');
+  container.innerHTML = LANGS.map((item) => `
+    <button type="button" data-lang="${item.code}" lang="${item.code}" title="${item.name}" aria-pressed="${item.code === getLang()}">${item.label}</button>
+  `).join('');
+  container.querySelectorAll('[data-lang]').forEach((button) => {
+    button.addEventListener('click', () => switchLanguage(button.dataset.lang));
+  });
+}
+
+/** Names of services and departments, so that open forms can follow the language. */
+async function directoryNames(from, to) {
+  if (!store.user) return [];
+  const suffix = { ru: 'Ru', kk: 'Kk', en: 'En' };
+  const [services, specializations] = await Promise.all([api.services.list(), api.specializations.list()]);
+  return [...services, ...specializations].map((item) => {
+    const name = (lang) => item[`name${suffix[lang]}`] || item.nameRu;
+    return [name(from), name(to)];
+  });
+}
+
+async function switchLanguage(lang) {
+  const modalRoot = document.getElementById('modal-root');
+  const modalOpen = modalRoot.childElementCount > 0;
+  const changed = await changeLang(lang, {
+    openRoots: [modalRoot],
+    loadEntities: directoryNames,
+  });
+  if (!changed) return;
+  renderLangSwitch();
+  loadClinic();
+  if (!loginScreen.classList.contains('hidden')) {
+    document.title = `${t('Вход')} | MedFlow`;
+    clearFieldErrors(registerForm);
+    loginError.classList.add('hidden');
+    if (registerForm.elements.namedItem('iin').value.length === 12) lookupIin();
+    return;
+  }
+  if (store.user?.role === 'PATIENT') {
+    api.me.setLanguage(lang).catch(() => null);
+  }
+  setUserInterface(store.user);
+  renderNav();
+  checkHealth();
+  refreshReferralBadge();
+  if (modalOpen) {
+    // The page behind an open form is redrawn when the form closes.
+    updatePageMeta(ROUTES[parseRoute().name] || ROUTES[defaultRouteName()]);
+    return;
+  }
+  const typed = [...viewElement.querySelectorAll('input[id], select[id], textarea[id]')]
+    .map((element) => [element.id, element.type === 'checkbox' ? element.checked : element.value]);
+  const marks = [...viewElement.querySelectorAll('input[type="checkbox"]:not([id]), input[type="radio"]')]
+    .map((element) => [`input[value="${element.value}"]`, element.checked]);
+  await handleRoute();
+  typed.forEach(([id, value]) => {
+    const element = document.getElementById(id);
+    if (!element || !viewElement.contains(element)) return;
+    if (element.type === 'checkbox') element.checked = value;
+    else element.value = value;
+  });
+  marks.forEach(([selector, checked]) => {
+    const element = viewElement.querySelector(selector);
+    if (element && element.checked !== checked) {
+      element.checked = checked;
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+}
+
+async function loadClinic() {
+  try {
+    const clinic = await api.clinic();
+    document.getElementById('header-clinic').textContent = clinic.name;
+    const phone = document.getElementById('header-phone');
+    phone.textContent = clinic.phone;
+    phone.href = `tel:${clinic.phone.replace(/[^+\d]/g, '')}`;
+    document.getElementById('login-contacts').innerHTML = `<strong>${esc(clinic.name)}</strong>${esc(clinic.address)}<br>${esc(clinic.email)}`;
+    document.getElementById('footer-clinic').textContent = `${clinic.name}, ${clinic.address}`;
+  } catch {
+    // contacts are decorative here; the page works without them
+  }
+}
+
+let lastReferralCount = null;
+
+/** New referrals show up for the receiving doctor without a page reload. */
+async function refreshReferralBadge() {
+  if (store.user?.role !== 'DOCTOR') return;
+  try {
+    const pending = (await api.referrals.incoming('PENDING')).length;
+    const badge = document.getElementById('referral-badge');
+    if (badge) {
+      badge.textContent = pending;
+      badge.classList.toggle('hidden', pending === 0);
+    }
+    if (lastReferralCount !== null && pending > lastReferralCount) {
+      toast(t('К вам направлен пациент'), 'info', t('Новое направление'));
+      document.dispatchEvent(new CustomEvent('referrals:arrived'));
+    }
+    lastReferralCount = pending;
+  } catch {
+    // the next poll will retry
+  }
 }
 
 function showApp(user) {
   store.user = user;
   loginScreen.classList.add('hidden');
   appElement.classList.remove('hidden');
+  document.getElementById('user-menu').classList.remove('hidden');
+  document.getElementById('menu-toggle').classList.remove('hidden');
+  document.getElementById('header-phone').classList.add('hidden');
+  lastReferralCount = null;
   setUserInterface(user);
   renderNav();
   if (!window.location.hash || window.location.hash === '#') {
@@ -328,8 +439,15 @@ function showApp(user) {
   }
   handleRoute();
   checkHealth();
+  refreshReferralBadge();
+  if (user.role === 'PATIENT') {
+    api.me.setLanguage(getLang()).catch(() => null);
+  }
   if (!healthTimer) {
-    healthTimer = window.setInterval(checkHealth, 60000);
+    healthTimer = window.setInterval(() => {
+      checkHealth();
+      refreshReferralBadge();
+    }, 20000);
   }
 }
 
@@ -337,7 +455,12 @@ function showLogin(message = '') {
   store.user = null;
   appElement.classList.add('hidden');
   loginScreen.classList.remove('hidden');
-  document.title = 'Вход — MedFlow';
+  document.getElementById('user-menu').classList.add('hidden');
+  document.getElementById('menu-toggle').classList.add('hidden');
+  document.getElementById('header-phone').classList.remove('hidden');
+  document.getElementById('modal-root').replaceChildren();
+  document.body.style.overflow = '';
+  document.title = `${t('Вход')} | MedFlow`;
   setAuthMode('login');
   if (message) {
     loginError.textContent = message;
@@ -359,11 +482,11 @@ async function checkHealth() {
     const health = await api.health();
     store.health = health;
     dot.className = 'health-dot is-up';
-    text.textContent = 'Система работает';
+    text.textContent = t('Система работает');
   } catch {
     store.health = null;
     dot.className = 'health-dot is-down';
-    text.textContent = 'API недоступен';
+    text.textContent = t('API недоступен');
   }
 }
 
@@ -394,7 +517,40 @@ function setAuthMode(mode) {
   }
 }
 
+async function lookupIin() {
+  const status = document.getElementById('register-iin-status');
+  const iin = registerForm.elements.namedItem('iin').value;
+  try {
+    const result = await api.auth.lookupIin(iin);
+    if (registerForm.elements.namedItem('iin').value !== iin) return;
+    status.className = `form-alert ${result.status === 'REGISTERED' ? '' : result.status === 'CARD_FOUND' ? 'form-alert-success' : 'form-alert-info'}`;
+    status.textContent = {
+      NEW: t('Карты с этим ИИН в клинике нет, мы создадим новую.'),
+      CARD_FOUND: t('Ваша карта есть в клинике. Укажите фамилию и телефон или email из карты, и мы привяжем её к кабинету.'),
+      REGISTERED: t('С этим ИИН уже есть личный кабинет. Войдите с паролем.'),
+    }[result.status];
+  } catch {
+    status.classList.add('hidden');
+  }
+}
+
+function bindIin() {
+  const input = registerForm.elements.namedItem('iin');
+  input.addEventListener('input', () => {
+    input.value = input.value.replace(/\D/g, '').slice(0, 12);
+    document.getElementById('register-iin-status').classList.add('hidden');
+    if (input.value.length !== 12) return;
+    const parsed = parseIin(input.value);
+    if (parsed) {
+      registerForm.elements.namedItem('birthDate').value = parsed.birthDate;
+      registerForm.elements.namedItem('gender').value = parsed.gender;
+    }
+    lookupIin();
+  });
+}
+
 function bindLogin() {
+  bindIin();
   document.querySelectorAll('[data-auth-mode]').forEach((button) => {
     button.addEventListener('click', () => setAuthMode(button.dataset.authMode));
   });
@@ -415,10 +571,9 @@ function bindLogin() {
     const visible = input.type === 'text';
     input.type = visible ? 'password' : 'text';
     wrap.classList.toggle('password-visible', !visible);
-    document.getElementById('toggle-password').setAttribute(
-      'aria-label',
-      visible ? 'Показать пароль' : 'Скрыть пароль',
-    );
+    const toggle = document.getElementById('toggle-password');
+    toggle.dataset.i18nLabel = visible ? 'Показать пароль' : 'Скрыть пароль';
+    toggle.setAttribute('aria-label', t(toggle.dataset.i18nLabel));
   });
 
   loginForm.addEventListener('submit', async (event) => {
@@ -426,50 +581,52 @@ function bindLogin() {
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
     if (!username || !password) {
-      loginError.textContent = 'Введите логин и пароль';
+      loginError.textContent = t('Введите логин и пароль');
       loginError.classList.remove('hidden');
       return;
     }
     loginError.classList.add('hidden');
     loginSubmit.disabled = true;
-    const original = loginSubmit.innerHTML;
-    loginSubmit.innerHTML = '<span class="spinner spinner-light"></span><span>Проверяем доступ…</span>';
+    loginSubmit.innerHTML = '<span class="spinner spinner-light"></span><span>' + t('Проверяем доступ…') + '</span>';
     try {
       const user = await api.auth.login({ username, password });
       loginForm.reset();
-      toast(`Добро пожаловать, ${user.fullName.split(' ')[0]}`, 'success', 'Вход выполнен');
+      registerForm.reset();
+      document.getElementById('register-iin-status').classList.add('hidden');
+      toast(user.fullName, 'success', t('Вход выполнен'));
       showApp(user);
     } catch (error) {
       loginError.textContent = error?.status === 401
-        ? 'Неверный логин или пароль. Проверьте раскладку и попробуйте снова.'
+        ? t('Неверный логин или пароль. Проверьте раскладку и попробуйте снова.')
         : getErrorMessage(error);
       loginError.classList.remove('hidden');
     } finally {
       loginSubmit.disabled = false;
-      loginSubmit.innerHTML = original;
+      loginSubmit.innerHTML = `<span data-i18n="Войти">${t('Войти')}</span>`;
     }
   });
 
   registerForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     clearFieldErrors(registerForm);
-    setButtonLoading(registerSubmit, true, 'Создаём кабинет…');
+    setButtonLoading(registerSubmit, true, t('Создаём кабинет…'));
     const payload = {
-      username: formValue(registerForm, 'username'),
-      password: registerForm.elements.namedItem('password').value,
       iin: formValue(registerForm, 'iin'),
-      firstName: formValue(registerForm, 'firstName'),
       lastName: formValue(registerForm, 'lastName'),
-      birthDate: formValue(registerForm, 'birthDate'),
-      gender: formValue(registerForm, 'gender'),
+      firstName: formValue(registerForm, 'firstName'),
+      middleName: formValue(registerForm, 'middleName') || null,
+      birthDate: formValue(registerForm, 'birthDate') || null,
+      gender: formValue(registerForm, 'gender') || null,
       phone: formValue(registerForm, 'phone'),
-      email: formValue(registerForm, 'email') || null,
-      address: formValue(registerForm, 'address'),
+      email: formValue(registerForm, 'email'),
+      password: registerForm.elements.namedItem('password').value,
+      ...readAddress(registerForm),
     };
     try {
       const user = await api.auth.register(payload);
       registerForm.reset();
-      toast(`Добро пожаловать, ${user.fullName.split(' ')[0]}`, 'success', 'Личный кабинет создан');
+      document.getElementById('register-iin-status').classList.add('hidden');
+      toast(user.fullName, 'success', t('Личный кабинет создан'));
       showApp(user);
     } catch (error) {
       showFormAlert(registerForm, getErrorMessage(error));
@@ -482,10 +639,9 @@ function bindLogin() {
 
 function bindApp() {
   document.getElementById('menu-toggle').addEventListener('click', () => {
-    sidebar.classList.add('is-open');
-    sidebarOverlay.classList.add('is-visible');
+    const open = sidebar.classList.toggle('is-open');
+    sidebarOverlay.classList.toggle('is-visible', open);
   });
-  document.getElementById('sidebar-close').addEventListener('click', closeSidebar);
   sidebarOverlay.addEventListener('click', closeSidebar);
 
   userButton.addEventListener('click', (event) => {
@@ -523,11 +679,12 @@ function bindApp() {
     history.replaceState(null, '', window.location.pathname);
     viewElement.innerHTML = '';
     showLogin();
-    toast('Вы вышли из системы', 'info');
+    toast(t('Вы вышли из системы'), 'info');
   });
 
   window.addEventListener('hashchange', handleRoute);
   window.addEventListener('app:route', handleRoute);
+  document.addEventListener('referrals:changed', refreshReferralBadge);
 }
 
 function bindSessionExpiry() {
@@ -545,12 +702,16 @@ function bindSessionExpiry() {
     }
     history.replaceState(null, '', window.location.pathname);
     viewElement.innerHTML = '';
-    showLogin('Сессия истекла. Войдите снова, чтобы продолжить работу.');
-    toast('Сессия истекла. Выполните вход повторно.', 'info', 'Требуется вход');
+    showLogin(t('Сессия истекла. Войдите снова, чтобы продолжить работу.'));
+    toast(t('Сессия истекла. Выполните вход повторно.'), 'info', t('Требуется вход'));
   });
 }
 
 async function boot() {
+  await loadDictionary();
+  translateStatic();
+  renderLangSwitch();
+  loadClinic();
   bindLogin();
   bindApp();
   bindSessionExpiry();

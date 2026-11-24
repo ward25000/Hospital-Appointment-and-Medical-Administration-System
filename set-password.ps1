@@ -17,32 +17,35 @@ param(
     [string]$Password,
     [switch]$VerifyOnly,
     [switch]$List,
-    [string]$MySqlHome = "$env:USERPROFILE\mysql84",
+    [string]$MySqlHome,
     [string]$Database = 'hospital_db'
 )
 
-try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
-$ErrorActionPreference = 'Stop'
+. (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'medflow-common.ps1')
+# Continue: mysql.exe и java пишут предупреждения в stderr, они не должны обрывать скрипт.
+$ErrorActionPreference = 'Continue'
+trap { Write-Host "ОШИБКА: $($_.Exception.Message)" -ForegroundColor Red; exit 1 }
 
+$MySqlHome = Resolve-MfMySqlHome $MySqlHome
 $mysql = Join-Path $MySqlHome 'bin\mysql.exe'
-if (-not (Test-Path $mysql)) {
-    Write-Host "Не найден mysql.exe: $mysql" -ForegroundColor Red
-    Write-Host "Сначала запусти setup.cmd или start.cmd." -ForegroundColor Yellow
+if (-not (Test-Path -LiteralPath $mysql) -or -not (Test-MfAppUser $MySqlHome 3306)) {
+    Write-Host 'База не отвечает. Сначала запусти start.cmd (если не поможет, full-reset.cmd).' -ForegroundColor Red
     exit 1
 }
+$env:MYSQL_PWD = $script:MfPassword
 
 $sqlArgs = @(
     '--protocol=tcp',
     '--host=127.0.0.1',
     '--port=3306',
-    '--user=root',
+    "--user=$script:MfUser",
     '--default-character-set=utf8mb4',
     "--database=$Database"
 )
 
 function Invoke-Sql {
     param([string]$Sql)
-    return (& $mysql @sqlArgs -e $Sql 2>&1)
+    return ($Sql | & $mysql @sqlArgs 2>&1)
 }
 
 # ---------------------------------------------------------------- показать всех
@@ -58,6 +61,8 @@ if ($List) {
 # ---------------------------------------------------------------- поиск Java
 function Find-JavaHome {
     $candidates = @()
+    $found = Resolve-MfJavaHome
+    if ($found) { $candidates += $found }
     if ($env:JAVA_HOME) { $candidates += $env:JAVA_HOME }
     $cfg = Join-Path "$env:USERPROFILE\.medflow-tools" 'medflow-setup.json'
     if (Test-Path $cfg) {

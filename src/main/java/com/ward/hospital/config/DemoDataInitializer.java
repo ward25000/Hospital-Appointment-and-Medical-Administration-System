@@ -1,5 +1,7 @@
 package com.ward.hospital.config;
 
+import com.ward.hospital.i18n.I18n;
+import com.ward.hospital.util.Address;
 import com.ward.hospital.domain.Appointment;
 import com.ward.hospital.domain.AppointmentStatus;
 import com.ward.hospital.domain.Doctor;
@@ -33,6 +35,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -87,7 +90,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         }
 
         List<Specialization> specializations = seedSpecializations();
-        List<MedicalService> services = seedServices();
+        List<MedicalService> services = seedServices(specializations);
         List<Patient> patients = seedPatients();
 
         List<User> staff = new ArrayList<>();
@@ -115,19 +118,31 @@ public class DemoDataInitializer implements CommandLineRunner {
         patients.get(0).setUser(patientUser);
 
         Doctor ivanov = new Doctor(ivanovUser, specializations.get(0), "Алексей", "Иванов",
-                "a.ivanov@medcenter.ru", "+7 (495) 120-20-01", "201");
+                "a.ivanov@medflow.kz", "+7 (727) 120-20-01", "201");
+        ivanov.setMiddleName("Сергеевич");
+        ivanov.setBioKk("Жоғары санатты кардиолог. Еңбек өтілі 18 жыл. Жүректің ишемиялық ауруын және ырғақ бұзылыстарын диагностикалауға маманданған.");
+        ivanov.setBioEn("Cardiologist of the highest category with 18 years of experience. Specialises in coronary heart disease and rhythm disorders.");
         ivanov.setBio("Кардиолог высшей категории. Стаж 18 лет. Специализируется на диагностике "
                 + "ишемической болезни сердца и нарушениях ритма.");
         Doctor petrova = new Doctor(petrovaUser, specializations.get(1), "Мария", "Петрова",
-                "m.petrova@medcenter.ru", "+7 (495) 120-20-02", "305");
+                "m.petrova@medflow.kz", "+7 (727) 120-20-02", "305");
+        petrova.setMiddleName("Викторовна");
+        petrova.setBioKk("Невролог, медицина ғылымдарының кандидаты. Бас сақинасы, нейропатия және жарақат салдары бар пациенттерді қабылдайды.");
+        petrova.setBioEn("Neurologist, PhD. Treats migraine, neuropathies and the consequences of injuries.");
         petrova.setBio("Невролог, кандидат медицинских наук. Ведёт пациентов с мигренью, "
                 + "нейропатиями и последствиями травм.");
         Doctor smirnov = new Doctor(smirnovUser, specializations.get(2), "Дмитрий", "Смирнов",
-                "d.smirnov@medcenter.ru", "+7 (495) 120-20-03", "102");
+                "d.smirnov@medflow.kz", "+7 (727) 120-20-03", "102");
+        smirnov.setMiddleName("Андреевич");
+        smirnov.setBioKk("Педиатр. Балаларды туғаннан 18 жасқа дейін бақылайды, вакцинация және профилактикалық тексерулер бойынша кеңес береді.");
+        smirnov.setBioEn("Pediatrician. Follows children from birth to 18, advises on vaccination and preventive check-ups.");
         smirnov.setBio("Педиатр. Наблюдает детей с рождения до 18 лет, консультирует по вопросам "
                 + "вакцинации и профилактических осмотров.");
         Doctor kuznetsova = new Doctor(kuznetsovaUser, specializations.get(3), "Ольга", "Кузнецова",
-                "o.kuznetsova@medcenter.ru", "+7 (495) 120-20-04", "118");
+                "o.kuznetsova@medflow.kz", "+7 (727) 120-20-04", "118");
+        kuznetsova.setMiddleName("Игоревна");
+        kuznetsova.setBioKk("Терапевт. Алғашқы диагностика, созылмалы ауруларды бақылау, профилактикалық бағдарламалар.");
+        kuznetsova.setBioEn("Physician. Primary diagnosis, management of chronic diseases, prevention programmes.");
         kuznetsova.setBio("Терапевт. Первичная диагностика, ведение хронических заболеваний, "
                 + "профилактические программы.");
         List<Doctor> doctors = doctorRepository.saveAll(List.of(ivanov, petrova, smirnov, kuznetsova));
@@ -136,7 +151,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         seedSchedules(doctors);
 
         seedAppointments(patients, services, doctors, admin);
-        seedReferrals(patients, specializations, doctors);
+        seedReferrals(patients, specializations, doctors, services);
 
         log.info("Demo data created: {} doctors, {} patients, {} services, {} appointments, {} referrals",
                 doctors.size(), patients.size(), services.size(), appointmentRepository.count(),
@@ -145,63 +160,114 @@ public class DemoDataInitializer implements CommandLineRunner {
 
     private List<Specialization> seedSpecializations() {
         return specializationRepository.saveAll(List.of(
-                new Specialization("Кардиология", "Диагностика и лечение заболеваний сердца и сосудов"),
-                new Specialization("Неврология", "Диагностика и лечение заболеваний нервной системы"),
-                new Specialization("Педиатрия", "Медицинская помощь детям и подросткам"),
-                new Specialization("Терапия", "Первичная медицинская помощь и профилактика"),
+                new Specialization("Кардиология", "Диагностика и лечение заболеваний сердца и сосудов")
+                        .translate("Кардиология", "Cardiology",
+                                "Жүрек және қан тамырлары ауруларын диагностикалау және емдеу",
+                                "Diagnosis and treatment of heart and vascular diseases"),
+                new Specialization("Неврология", "Диагностика и лечение заболеваний нервной системы")
+                        .translate("Неврология", "Neurology",
+                                "Жүйке жүйесі ауруларын диагностикалау және емдеу",
+                                "Diagnosis and treatment of nervous system diseases"),
+                new Specialization("Педиатрия", "Медицинская помощь детям и подросткам")
+                        .translate("Педиатрия", "Pediatrics",
+                                "Балалар мен жасөспірімдерге медициналық көмек",
+                                "Medical care for children and adolescents"),
+                new Specialization("Терапия", "Первичная медицинская помощь и профилактика")
+                        .translate("Терапия", "Internal medicine",
+                                "Алғашқы медициналық көмек және профилактика",
+                                "Primary care and prevention"),
                 new Specialization("Ортопедия", "Заболевания и травмы опорно-двигательного аппарата")
+                        .translate("Ортопедия", "Orthopedics",
+                                "Тірек-қимыл аппаратының аурулары мен жарақаттары",
+                                "Diseases and injuries of the musculoskeletal system")
         ));
     }
 
-    private List<MedicalService> seedServices() {
+    private List<MedicalService> seedServices(List<Specialization> departments) {
         return serviceRepository.saveAll(List.of(
                 new MedicalService("Первичная консультация врача",
-                        "Осмотр, сбор анамнеза и план обследования", new BigDecimal("2500.00"), 30),
+                        "Осмотр, сбор анамнеза и план обследования", new BigDecimal("9000.00"), 30)
+                        .translate("Дәрігердің алғашқы кеңесі", "Initial consultation",
+                                "Қарап-тексеру, анамнез жинау және тексеру жоспары",
+                                "Examination, history taking and a diagnostic plan"),
                 new MedicalService("Повторная консультация",
-                        "Контрольный приём и корректировка лечения", new BigDecimal("1800.00"), 30),
+                        "Контрольный приём и корректировка лечения", new BigDecimal("6000.00"), 30)
+                        .translate("Қайта кеңес алу", "Follow-up consultation",
+                                "Бақылау қабылдауы және емді түзету",
+                                "Follow-up visit and treatment adjustment"),
                 new MedicalService("ЭКГ",
-                        "Электрокардиография в 12 отведениях с расшифровкой", new BigDecimal("1200.00"), 30),
+                        "Электрокардиография в 12 отведениях с расшифровкой", new BigDecimal("4500.00"), 30)
+                        .translate("ЭКГ", "ECG",
+                                "12 тармақтағы электрокардиография, қорытындысымен",
+                                "12-lead electrocardiography with interpretation")
+                        .asDiagnostic(departments.get(0), "210"),
                 new MedicalService("УЗИ сердца",
-                        "Эхокардиография с допплерографией", new BigDecimal("3200.00"), 45),
+                        "Эхокардиография с допплерографией", new BigDecimal("14000.00"), 45)
+                        .translate("Жүректің УДЗ", "Echocardiography",
+                                "Допплерографиямен эхокардиография",
+                                "Heart ultrasound with Doppler imaging")
+                        .asDiagnostic(departments.get(0), "212"),
                 new MedicalService("Общий анализ крови",
-                        "Клинический анализ крови с лейкоцитарной формулой", new BigDecimal("900.00"), 15),
+                        "Клинический анализ крови с лейкоцитарной формулой", new BigDecimal("2800.00"), 15)
+                        .translate("Жалпы қан талдауы", "Complete blood count",
+                                "Лейкоцитарлық формуласымен клиникалық қан талдауы",
+                                "Clinical blood test with white cell differential")
+                        .asDiagnostic(departments.get(3), "115"),
                 new MedicalService("Неврологический осмотр",
                         "Оценка рефлексов, чувствительности и неврологического статуса",
-                        new BigDecimal("2200.00"), 30),
+                        new BigDecimal("8000.00"), 30)
+                        .translate("Неврологиялық тексеру", "Neurological examination",
+                                "Рефлекстерді, сезімталдықты және неврологиялық мәртебені бағалау",
+                                "Assessment of reflexes, sensitivity and neurological status"),
                 new MedicalService("Детский профилактический осмотр",
-                        "Комплексный осмотр ребёнка и рекомендации по развитию", new BigDecimal("2000.00"), 30),
+                        "Комплексный осмотр ребёнка и рекомендации по развитию", new BigDecimal("7500.00"), 30)
+                        .translate("Балаларды профилактикалық тексеру", "Child preventive check-up",
+                                "Баланы кешенді тексеру және даму бойынша ұсыныстар",
+                                "Comprehensive examination of a child and development advice"),
                 new MedicalService("Внутрисуставная инъекция",
-                        "Лечебная инъекция под контролем специалиста", new BigDecimal("3500.00"), 45)
+                        "Лечебная инъекция под контролем специалиста", new BigDecimal("12000.00"), 45)
+                        .translate("Буынішілік инъекция", "Intra-articular injection",
+                                "Маманның бақылауымен емдік инъекция",
+                                "Therapeutic injection under specialist control")
         ));
     }
 
     private List<Patient> seedPatients() {
         return patientRepository.saveAll(List.of(
-                new Patient("900412100001", "Анна", "Соколова", LocalDate.of(1990, 4, 12), Gender.FEMALE,
-                        "+7 (916) 100-10-01", "a.sokolova@example.com", "Москва, ул. Лесная, 10"),
-                new Patient("850923100002", "Михаил", "Орлов", LocalDate.of(1985, 9, 23), Gender.MALE,
-                        "+7 (916) 100-10-02", "m.orlov@example.com", "Москва, ул. Мира, 24"),
-                new Patient("780130100003", "Елена", "Волкова", LocalDate.of(1978, 1, 30), Gender.FEMALE,
-                        "+7 (916) 100-10-03", "e.volkova@example.com", "Москва, ул. Садовая, 7"),
-                new Patient("980617100004", "Артём", "Лебедев", LocalDate.of(1998, 6, 17), Gender.MALE,
-                        "+7 (916) 100-10-04", "a.lebedev@example.com", "Москва, пр-т Вернадского, 41"),
-                new Patient("921205100005", "Ольга", "Морозова", LocalDate.of(1992, 12, 5), Gender.FEMALE,
-                        "+7 (916) 100-10-05", "o.morozova@example.com", "Москва, ул. Полярная, 15"),
-                new Patient("690314100006", "Сергей", "Новиков", LocalDate.of(1969, 3, 14), Gender.MALE,
-                        "+7 (916) 100-10-06", "s.novikov@example.com", "Москва, ул. Академика Королёва, 8"),
-                new Patient("010721100007", "Дарья", "Зайцева", LocalDate.of(2001, 7, 21), Gender.FEMALE,
-                        "+7 (916) 100-10-07", "d.zaitseva@example.com", "Москва, ул. Тверская, 19"),
-                new Patient("881102100008", "Павел", "Егоров", LocalDate.of(1988, 11, 2), Gender.MALE,
-                        "+7 (916) 100-10-08", "p.egorov@example.com", "Москва, ул. Гагарина, 33"),
-                new Patient("750509100009", "Ирина", "Павлова", LocalDate.of(1975, 5, 9), Gender.FEMALE,
-                        "+7 (916) 100-10-09", "i.pavlova@example.com", "Москва, ул. Никольская, 5"),
-                new Patient("140819100010", "Никита", "Козлов", LocalDate.of(2014, 8, 19), Gender.MALE,
-                        "+7 (916) 100-10-10", "n.kozlov@example.com", "Москва, ул. Строителей, 12"),
-                new Patient("180227100011", "София", "Белова", LocalDate.of(2018, 2, 27), Gender.FEMALE,
-                        "+7 (916) 100-10-11", "s.belova@example.com", "Москва, ул. Молодёжная, 3"),
-                new Patient("621011100012", "Виктор", "Громов", LocalDate.of(1962, 10, 11), Gender.MALE,
-                        "+7 (916) 100-10-12", "v.gromov@example.com", "Москва, ул. Ветеранская, 21")
+                patient("900412400015", "Анна", "Соколова", LocalDate.of(1990, 4, 12), Gender.FEMALE,
+                        "+7 (701) 100-10-01", "a.sokolova@example.com", "ул. Абая", "10", "4"),
+                patient("850923300027", "Михаил", "Орлов", LocalDate.of(1985, 9, 23), Gender.MALE,
+                        "+7 (701) 100-10-02", "m.orlov@example.com", "ул. Толе би", "24", "8"),
+                patient("780130400038", "Елена", "Волкова", LocalDate.of(1978, 1, 30), Gender.FEMALE,
+                        "+7 (701) 100-10-03", "e.volkova@example.com", "пр. Назарбаева", "7", null),
+                patient("980617300049", "Артём", "Лебедев", LocalDate.of(1998, 6, 17), Gender.MALE,
+                        "+7 (701) 100-10-04", "a.lebedev@example.com", "ул. Сатпаева", "41", "16"),
+                patient("921205400050", "Ольга", "Морозова", LocalDate.of(1992, 12, 5), Gender.FEMALE,
+                        "+7 (701) 100-10-05", "o.morozova@example.com", "ул. Жандосова", "15", "20"),
+                patient("690314300061", "Сергей", "Новиков", LocalDate.of(1969, 3, 14), Gender.MALE,
+                        "+7 (701) 100-10-06", "s.novikov@example.com", "ул. Тимирязева", "8", null),
+                patient("010721600072", "Дарья", "Зайцева", LocalDate.of(2001, 7, 21), Gender.FEMALE,
+                        "+7 (701) 100-10-07", "d.zaitseva@example.com", "пр. Достык", "19", "28"),
+                patient("881102300083", "Павел", "Егоров", LocalDate.of(1988, 11, 2), Gender.MALE,
+                        "+7 (701) 100-10-08", "p.egorov@example.com", "ул. Розыбакиева", "33", "32"),
+                patient("750509400094", "Ирина", "Павлова", LocalDate.of(1975, 5, 9), Gender.FEMALE,
+                        "+7 (701) 100-10-09", "i.pavlova@example.com", "ул. Байтурсынова", "5", null),
+                patient("140819500105", "Никита", "Козлов", LocalDate.of(2014, 8, 19), Gender.MALE,
+                        "+7 (701) 100-10-10", "n.kozlov@example.com", "ул. Гоголя", "12", "40"),
+                patient("180227600116", "София", "Белова", LocalDate.of(2018, 2, 27), Gender.FEMALE,
+                        "+7 (701) 100-10-11", "s.belova@example.com", "ул. Кабанбай батыра", "3", "44"),
+                patient("621011300127", "Виктор", "Громов", LocalDate.of(1962, 10, 11), Gender.MALE,
+                        "+7 (701) 100-10-12", "v.gromov@example.com", "пр. Аль-Фараби", "21", null)
         ));
+    }
+
+    private Patient patient(String iin, String firstName, String lastName, LocalDate birthDate, Gender gender,
+                            String phone, String email, String street, String house, String apartment) {
+        Address address = Address.of("Алматы", street, house, apartment);
+        Patient patient = new Patient(iin, firstName, lastName, birthDate, gender, phone, email,
+                address.format(I18n.RU));
+        patient.applyAddress(address);
+        return patient;
     }
 
     private void seedSchedules(List<Doctor> doctors) {
@@ -265,10 +331,21 @@ public class DemoDataInitializer implements CommandLineRunner {
                 AppointmentStatus.CANCELLED, null, "Пациент отменил запись");
         addAppointment(today.minusDays(1), LocalTime.of(12, 30), 2, 1, patients, services, doctors, admin,
                 AppointmentStatus.NO_SHOW, "Пациент не явился на приём", null);
+
+        LocalDate friday = today.minusDays(today.getDayOfWeek().getValue() + 2L);
+        Appointment finished = addAppointment(friday, LocalTime.of(9, 0), 0, 0, patients, services, doctors, admin,
+                AppointmentStatus.COMPLETED, "Жалобы на головную боль и повышение давления", null);
+        finished.setDiagnosis("I10 Артериальная гипертензия, I степень");
+        finished.setConclusion("АД 145/90 мм рт. ст., пульс 78 в минуту. Тоны сердца ясные, ритм правильный. "
+                + "Очаговой неврологической симптоматики нет.");
+        finished.setRecommendations("Контроль АД два раза в день, ограничение соли, консультация невролога.");
+        // The visit is over, but the doctor has not marked whether the patient attended.
+        addAppointment(friday, LocalTime.of(16, 0), 8, 1, patients, services, doctors, admin,
+                AppointmentStatus.SCHEDULED, "Контрольный приём", null);
     }
 
     private void seedReferrals(List<Patient> patients, List<Specialization> specializations,
-                               List<Doctor> doctors) {
+                               List<Doctor> doctors, List<MedicalService> services) {
         Doctor ivanov = doctors.get(0);
         Doctor petrova = doctors.get(1);
         Doctor kuznetsova = doctors.get(3);
@@ -276,6 +353,8 @@ public class DemoDataInitializer implements CommandLineRunner {
         Referral toNeurologist = new Referral(patients.get(0), ivanov,
                 findAppointment(patients.get(0)));
         toNeurologist.setToDoctor(petrova);
+        toNeurologist.setService(services.get(5));
+        toNeurologist.setPrice(services.get(5).getPrice());
         toNeurologist.setDepartment(petrova.getSpecialization().getName());
         toNeurologist.setOffice(petrova.getOffice());
         toNeurologist.setReason("Головные боли, направление к неврологу");
@@ -284,7 +363,9 @@ public class DemoDataInitializer implements CommandLineRunner {
                 findAppointment(patients.get(1)));
         toCardiologist.setToSpecialization(specializations.get(0));
         toCardiologist.setDepartment(specializations.get(0).getName());
-        toCardiologist.setOffice("201");
+        toCardiologist.setService(services.get(2));
+        toCardiologist.setPrice(services.get(2).getPrice());
+        toCardiologist.setOffice(services.get(2).getOffice());
         toCardiologist.setReason("Повышенное артериальное давление, нужна консультация кардиолога");
 
         referralRepository.saveAll(List.of(toNeurologist, toCardiologist));
@@ -293,11 +374,12 @@ public class DemoDataInitializer implements CommandLineRunner {
     private Appointment findAppointment(Patient patient) {
         return appointmentRepository.findAll().stream()
                 .filter(appointment -> appointment.getPatient().getId().equals(patient.getId()))
+                .sorted(Comparator.comparing(Appointment::getStartTime))
                 .findFirst()
                 .orElse(null);
     }
 
-    private void addAppointment(LocalDate date, LocalTime time, int patientIndex, int serviceIndex,
+    private Appointment addAppointment(LocalDate date, LocalTime time, int patientIndex, int serviceIndex,
                                 List<Patient> patients, List<MedicalService> services,
                                 List<Doctor> doctors, User admin, AppointmentStatus status,
                                 String notes, String cancellationReason) {
@@ -312,7 +394,7 @@ public class DemoDataInitializer implements CommandLineRunner {
                 .orElse(null);
         if (doctor == null) {
             log.debug("No free doctor for demo appointment at {}", start);
-            return;
+            return null;
         }
 
         Appointment appointment = new Appointment(doctor, patients.get(patientIndex), service,
@@ -321,6 +403,10 @@ public class DemoDataInitializer implements CommandLineRunner {
         appointment.setNotes(notes);
         if (status == AppointmentStatus.COMPLETED) {
             appointment.setCompletedAt(end);
+            appointment.setDiagnosis("Z00.0 Общий медицинский осмотр");
+            appointment.setConclusion("Состояние удовлетворительное. Жалоб на момент осмотра нет, "
+                    + "показатели в пределах возрастной нормы.");
+            appointment.setRecommendations("Соблюдать режим труда и отдыха, повторный осмотр через 6 месяцев.");
         }
         if (status == AppointmentStatus.CANCELLED) {
             appointment.setCancelledAt(LocalDateTime.now());
@@ -332,6 +418,7 @@ public class DemoDataInitializer implements CommandLineRunner {
             bookedIntervals.computeIfAbsent(doctor.getId(), key -> new ArrayList<>())
                     .add(new LocalDateTime[]{start, end});
         }
+        return appointment;
     }
 
     private boolean isWorking(Doctor doctor, LocalDate date, LocalTime start, LocalDateTime end) {

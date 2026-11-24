@@ -8,7 +8,7 @@ services:
       MYSQL_USER: hospital
       MYSQL_PASSWORD: hospital_pass
       MYSQL_ROOT_PASSWORD: root_pass
-      TZ: Europe/Moscow
+      TZ: Asia/Almaty
     ports:
       - "3306:3306"
     volumes:

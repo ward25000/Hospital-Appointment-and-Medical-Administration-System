@@ -70,6 +70,14 @@ public class DashboardService {
                 .map(AppointmentResponse::from)
                 .toList();
 
+        // Visits that are over but still have no "attended / no-show" mark.
+        List<AppointmentResponse> unmarked = appointmentRepository
+                .search(now.minusMonths(3), now, doctorId, null, AppointmentStatus.SCHEDULED, null)
+                .stream()
+                .filter(appointment -> appointment.getEndTime().isBefore(now))
+                .map(AppointmentResponse::from)
+                .toList();
+
         return new DashboardResponse(
                 today,
                 todayTotal,
@@ -78,7 +86,8 @@ public class DashboardService {
                 patientsThisMonth,
                 revenueThisMonth,
                 todayAppointments,
-                upcoming
+                upcoming,
+                unmarked
         );
     }
 }

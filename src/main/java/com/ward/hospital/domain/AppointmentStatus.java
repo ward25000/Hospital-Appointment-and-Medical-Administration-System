@@ -1,8 +1,10 @@
 package com.ward.hospital.domain;
 
+import com.ward.hospital.i18n.I18n;
+
 public enum AppointmentStatus {
-    SCHEDULED("Ожидает"),
-    COMPLETED("Приём проведён"),
+    SCHEDULED("Запланирован"),
+    COMPLETED("Прошел"),
     CANCELLED("Отменён"),
     NO_SHOW("Не явился");
 
@@ -13,6 +15,6 @@ public enum AppointmentStatus {
     }
 
     public String getLabel() {
-        return label;
+        return I18n.t(label);
     }
 }

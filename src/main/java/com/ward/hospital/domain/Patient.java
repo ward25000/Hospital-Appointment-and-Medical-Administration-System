@@ -1,5 +1,7 @@
 package com.ward.hospital.domain;
 
+import com.ward.hospital.i18n.I18n;
+import com.ward.hospital.util.Address;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -32,6 +34,9 @@ public class Patient extends BaseEntity {
     @Column(name = "last_name", nullable = false, length = 80)
     private String lastName;
 
+    @Column(name = "middle_name", length = 80)
+    private String middleName;
+
     @Column(name = "birth_date", nullable = false)
     private LocalDate birthDate;
 
@@ -47,6 +52,22 @@ public class Patient extends BaseEntity {
 
     @Column(name = "address", nullable = false, length = 300)
     private String address;
+
+    @Column(name = "address_city", length = 100)
+    private String addressCity;
+
+    @Column(name = "address_street", length = 120)
+    private String addressStreet;
+
+    @Column(name = "address_house", length = 20)
+    private String addressHouse;
+
+    @Column(name = "address_apartment", length = 20)
+    private String addressApartment;
+
+    /** Language of notifications sent to the patient. */
+    @Column(name = "preferred_lang", nullable = false, length = 2)
+    private String preferredLang = I18n.RU;
 
     protected Patient() {
     }
@@ -136,6 +157,73 @@ public class Patient extends BaseEntity {
     }
 
     public String getFullName() {
-        return firstName + " " + lastName;
+        return middleName == null ? lastName + " " + firstName
+                : lastName + " " + firstName + " " + middleName;
+    }
+
+    public String getMiddleName() {
+        return middleName;
+    }
+
+    public void setMiddleName(String middleName) {
+        this.middleName = middleName;
+    }
+
+    public String getAddressCity() {
+        return addressCity;
+    }
+
+    public void setAddressCity(String addressCity) {
+        this.addressCity = addressCity;
+    }
+
+    public String getAddressStreet() {
+        return addressStreet;
+    }
+
+    public void setAddressStreet(String addressStreet) {
+        this.addressStreet = addressStreet;
+    }
+
+    public String getAddressHouse() {
+        return addressHouse;
+    }
+
+    public void setAddressHouse(String addressHouse) {
+        this.addressHouse = addressHouse;
+    }
+
+    public String getAddressApartment() {
+        return addressApartment;
+    }
+
+    public void setAddressApartment(String addressApartment) {
+        this.addressApartment = addressApartment;
+    }
+
+    public String getPreferredLang() {
+        return preferredLang;
+    }
+
+    public void setPreferredLang(String preferredLang) {
+        this.preferredLang = preferredLang;
+    }
+
+    public Address getStructuredAddress() {
+        return Address.of(addressCity, addressStreet, addressHouse, addressApartment);
+    }
+
+    /** Stores the structured address together with its one-line Russian form. */
+    public void applyAddress(Address value) {
+        addressCity = value.city();
+        addressStreet = value.street();
+        addressHouse = value.house();
+        addressApartment = value.apartment();
+        address = value.format(I18n.RU);
+    }
+
+    public String addressText(String lang) {
+        Address value = getStructuredAddress();
+        return value.isComplete() ? value.format(lang) : address;
     }
 }

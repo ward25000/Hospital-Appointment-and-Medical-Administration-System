@@ -1,130 +1,111 @@
 import { api, getErrorMessage } from '../api.js';
+import { t, plural } from '../i18n.js';
 import {
-  icon,
-  esc,
-  statusBadge,
-  formatDate,
-  formatDateLong,
-  formatTime,
-  formatMoney,
-  emptyState,
-  errorState,
-  loadingState,
-  segmentedControl,
+  icon, esc, statusBadge, paymentBadge, formatDateLong, formatTime, formatMoney, emptyState, errorState,
+  loadingState, segmentedControl, setButtonLoading, toast,
 } from '../ui.js';
 
 const state = { period: 'all' };
 
-function visitRow(visit) {
+function visitCard(visit, referrals) {
+  const done = visit.status === 'COMPLETED';
+  const payable = visit.paymentStatus === 'UNPAID' && ['SCHEDULED', 'COMPLETED'].includes(visit.status);
   return `
-    <tr>
-      <td>
-        <span class="cell-main">${formatDateLong(visit.startTime)}</span>
-        <span class="cell-sub">${formatTime(visit.startTime)}–${formatTime(visit.endTime)}</span>
-      </td>
-      <td>
-        <span class="cell-main">${esc(visit.doctorName)}</span>
-        <span class="cell-sub">${visit.doctorOffice ? `каб. ${esc(visit.doctorOffice)}` : 'кабинет не указан'}</span>
-      </td>
-      <td>
-        <span class="cell-main">${esc(visit.doctorSpecialization)}</span>
-        <span class="cell-sub">${esc(visit.serviceName)}</span>
-      </td>
-      <td>${statusBadge(visit.status, visit.statusLabel)}</td>
-      <td class="num">${formatMoney(visit.price)}</td>
-    </tr>
-  `;
-}
-
-function renderTable(visits) {
-  if (visits.length === 0) {
-    return `
-      <div class="table-empty">
-        ${emptyState({
-          iconName: 'visits',
-          title: 'Визитов пока нет',
-          text: 'Здесь появятся ваши предстоящие и прошедшие приёмы.',
-        })}
+    <article class="visit">
+      <div class="visit-date">
+        <strong>${formatDateLong(visit.startTime)}</strong>
+        <span>${formatTime(visit.startTime)}–${formatTime(visit.endTime)}</span>
       </div>
-    `;
-  }
-  return `
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Дата и время</th>
-          <th>Врач</th>
-          <th>Специальность / услуга</th>
-          <th>Статус</th>
-          <th class="num">Стоимость</th>
-        </tr>
-      </thead>
-      <tbody>${visits.map(visitRow).join('')}</tbody>
-    </table>
-  `;
+      <div class="visit-body">
+        <strong>${esc(visit.doctorName)}</strong>
+        <p>${esc(visit.doctorSpecialization)}, ${t('каб. {0}', [esc(visit.doctorOffice)])}</p>
+        <p>${esc(visit.serviceName)}, ${formatMoney(visit.price)}</p>
+        ${done ? `
+          <div class="visit-result">
+            <div><b>${t('Диагноз')}</b><p>${esc(visit.diagnosis || '—')}</p></div>
+            <div><b>${t('Заключение врача')}</b><p>${esc(visit.conclusion || '—')}</p></div>
+            ${visit.recommendations ? `<div><b>${t('Рекомендации')}</b><p>${esc(visit.recommendations)}</p></div>` : ''}
+          </div>` : ''}
+        ${referrals.length ? `
+          <div class="visit-result">
+            <div><b>${t('Выданные направления')}</b>
+              <ul class="visit-referrals">${referrals.map((referral) => `
+                <li>${esc([referral.serviceName, referral.toDoctorName || referral.toSpecializationName].filter(Boolean).join(', '))}${referral.office ? `, ${t('каб. {0}', [esc(referral.office)])}` : ''}: ${esc(referral.reason || '—')}</li>`).join('')}
+              </ul>
+            </div>
+          </div>` : ''}
+        ${visit.cancellationReason ? `<p>${t('Причина отмены')}: ${esc(visit.cancellationReason)}</p>` : ''}
+      </div>
+      <div class="visit-side">
+        ${statusBadge(visit.status)}
+        ${['SCHEDULED', 'COMPLETED'].includes(visit.status) || visit.paymentStatus === 'PAID' ? paymentBadge(visit.paymentStatus) : ''}
+        ${done ? `<button type="button" class="btn btn-secondary btn-sm" data-certificate="${visit.id}">${icon('download')}<span>${t('Скачать справку')}</span></button>` : ''}
+        ${payable ? `<a class="btn btn-primary btn-sm" href="#/payments?visit=${visit.id}">${t('Оплатить')}</a>` : ''}
+      </div>
+    </article>`;
 }
 
 export async function render(root) {
   root.innerHTML = `
     <div class="stack">
-      <div class="flex items-center gap-12 flex-wrap">
-        ${segmentedControl([
-          { value: 'all', label: 'Все визиты' },
-          { value: 'upcoming', label: 'Предстоящие' },
-          { value: 'past', label: 'Прошедшие' },
-        ], state.period)}
-        <div class="spacer"></div>
-        <button type="button" class="btn btn-secondary btn-icon" data-refresh title="Обновить" aria-label="Обновить">${icon('refresh')}</button>
-      </div>
-      <section class="card">
-        <div class="card-header">
-          <div>
-            <div class="card-title">История посещений</div>
-            <div class="card-subtitle" data-count>Загружаем визиты…</div>
-          </div>
-          <span class="metric-inline">${icon('database')} <span>Личный кабинет</span></span>
-        </div>
-        <div class="table-wrap" data-table>${loadingState('Загружаем визиты…')}</div>
-      </section>
-    </div>
-  `;
-
-  const table = root.querySelector('[data-table]');
+      ${segmentedControl([
+        { value: 'all', label: t('Все визиты') },
+        { value: 'upcoming', label: t('Предстоящие') },
+        { value: 'past', label: t('Прошедшие') },
+      ], state.period)}
+      <p class="muted" data-count></p>
+      <section class="card" data-list>${loadingState(t('Загружаем визиты…'))}</section>
+    </div>`;
+  const list = root.querySelector('[data-list]');
   const count = root.querySelector('[data-count]');
+  let visits = [];
+  let referrals = [];
+
+  function draw() {
+    const now = Date.now();
+    const shown = visits.filter((visit) => {
+      const start = new Date(visit.startTime).getTime();
+      if (state.period === 'upcoming') return start >= now;
+      return state.period === 'past' ? start < now : true;
+    });
+    count.textContent = `${shown.length} ${plural(shown.length, ['визит', 'визита', 'визитов'])}`;
+    list.innerHTML = shown.length
+      ? shown.map((visit) => visitCard(visit, referrals.filter((item) => item.appointmentId === visit.id))).join('')
+      : emptyState({ iconName: 'visits', title: t('Визитов пока нет'), text: t('Здесь появятся ваши предстоящие и прошедшие приёмы.') });
+    list.querySelectorAll('[data-certificate]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        setButtonLoading(button, true, t('Готовим…'));
+        try {
+          await api.appointments.certificate(button.dataset.certificate);
+        } catch (error) {
+          toast(getErrorMessage(error), 'error');
+        } finally {
+          setButtonLoading(button, false);
+        }
+      });
+    });
+  }
 
   async function load() {
-    table.innerHTML = loadingState('Загружаем визиты…');
     try {
-      const visits = await api.me.visits();
-      const now = Date.now();
-      const filtered = visits.filter((visit) => {
-        if (state.period === 'upcoming') {
-          return new Date(visit.startTime).getTime() >= now;
-        }
-        if (state.period === 'past') {
-          return new Date(visit.startTime).getTime() < now;
-        }
-        return true;
-      });
-      count.textContent = `${filtered.length} ${filtered.length === 1 ? 'визит' : 'визитов'} в выбранном периоде`;
-      table.innerHTML = renderTable(filtered);
+      [visits, referrals] = await Promise.all([api.me.visits(), api.referrals.mine()]);
+      visits.sort((left, right) => right.startTime.localeCompare(left.startTime));
+      draw();
     } catch (error) {
-      table.innerHTML = errorState(getErrorMessage(error));
-      table.querySelector('[data-retry]')?.addEventListener('click', load);
+      list.innerHTML = errorState(getErrorMessage(error));
+      list.querySelector('[data-retry]')?.addEventListener('click', load);
     }
   }
 
   root.querySelectorAll('[data-tab]').forEach((button) => {
     button.addEventListener('click', () => {
       state.period = button.dataset.tab;
-      root.querySelectorAll('[data-tab]').forEach((item) => {
-        item.classList.toggle('is-active', item.dataset.tab === state.period);
-        item.setAttribute('aria-selected', String(item.dataset.tab === state.period));
+      root.querySelectorAll('[data-tab]').forEach((other) => {
+        other.classList.toggle('is-active', other === button);
+        other.setAttribute('aria-selected', String(other === button));
       });
-      load();
+      draw();
     });
   });
-  root.querySelector('[data-refresh]').addEventListener('click', load);
-
   await load();
 }

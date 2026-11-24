@@ -1,5 +1,7 @@
 package com.ward.hospital.repository;
 
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import com.ward.hospital.domain.Patient;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -14,12 +16,17 @@ public interface PatientRepository extends JpaRepository<Patient, Long> {
             select p from Patient p
             where :query is null
                or lower(concat(p.firstName, ' ', p.lastName)) like lower(concat('%', :query, '%'))
+               or lower(concat(p.lastName, ' ', p.firstName)) like lower(concat('%', :query, '%'))
                or p.phone like concat('%', :query, '%')
                or p.iin like concat('%', :query, '%')
                or lower(coalesce(p.email, '')) like lower(concat('%', :query, '%'))
             order by p.lastName, p.firstName
             """)
     List<Patient> search(@Param("query") String query);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Patient p where p.id = :id")
+    Optional<Patient> findByIdForUpdate(@Param("id") Long id);
 
     Optional<Patient> findByUserId(Long userId);
 

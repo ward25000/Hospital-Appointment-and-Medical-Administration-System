@@ -1,5 +1,6 @@
 package com.ward.hospital.config;
 
+import com.ward.hospital.i18n.I18n;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ward.hospital.dto.common.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
@@ -78,8 +79,10 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .requestCache(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/index.html", "/css/**", "/js/**", "/assets/**", "/favicon.ico").permitAll()
-                        .requestMatchers("/api/auth/csrf", "/api/auth/login", "/api/auth/register").permitAll()
+                        .requestMatchers("/", "/index.html", "/css/**", "/js/**", "/i18n/**", "/assets/**",
+                                "/favicon.ico", "/favicon.svg").permitAll()
+                        .requestMatchers("/api/auth/csrf", "/api/auth/login", "/api/auth/register",
+                                "/api/auth/iin", "/api/clinic").permitAll()
                         .requestMatchers("/api/health", "/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/error").permitAll()
@@ -116,7 +119,7 @@ public class SecurityConfig {
                 Instant.now(),
                 status.value(),
                 status.getReasonPhrase(),
-                message,
+                I18n.translate(I18n.normalize(request.getHeader("Accept-Language")), message),
                 request.getRequestURI(),
                 null
         );

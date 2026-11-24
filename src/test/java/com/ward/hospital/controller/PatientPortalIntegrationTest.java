@@ -183,7 +183,7 @@ class PatientPortalIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].doctorName").exists())
                 .andExpect(jsonPath("$[0].doctorSpecialization").exists())
-                .andExpect(jsonPath("$[0].statusLabel").value("Ожидает"));
+                .andExpect(jsonPath("$[0].statusLabel").value("Запланирован"));
 
         mockMvc.perform(get("/api/appointments").with(user(patientPrincipal)))
                 .andExpect(status().isOk())
@@ -255,7 +255,7 @@ class PatientPortalIntegrationTest {
     @DisplayName("Recipient doctor updates referral status; patient sees the referral")
     void referralStatusWorkflow() throws Exception {
         String request = """
-                {"appointmentId":%d,"toDoctorId":%d}
+                {"appointmentId":%d,"toDoctorId":%d,"reason":"Консультация"}
                 """.formatted(activeVisit.getId(), neurologist.getId());
 
         String response = mockMvc.perform(post("/api/referrals").with(user(doctorPrincipal)).with(csrf())
@@ -295,7 +295,7 @@ class PatientPortalIntegrationTest {
     @DisplayName("Doctor cannot create a referral for somebody else's appointment")
     void referralForForeignAppointmentIsRejected() throws Exception {
         String request = """
-                {"appointmentId":%d,"toDoctorId":%d}
+                {"appointmentId":%d,"toDoctorId":%d,"reason":"Консультация"}
                 """.formatted(activeVisit.getId(), neurologist.getId());
 
         mockMvc.perform(post("/api/referrals").with(user(neurologistPrincipal)).with(csrf())

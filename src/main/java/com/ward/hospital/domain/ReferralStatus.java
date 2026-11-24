@@ -1,5 +1,7 @@
 package com.ward.hospital.domain;
 
+import com.ward.hospital.i18n.I18n;
+
 public enum ReferralStatus {
     PENDING("Ожидает"),
     ACCEPTED("Принято"),
@@ -13,6 +15,6 @@ public enum ReferralStatus {
     }
 
     public String getLabel() {
-        return label;
+        return I18n.t(label);
     }
 }

@@ -56,6 +56,22 @@ public class Appointment extends BaseEntity {
     @Column(name = "notes", length = 500)
     private String notes;
 
+    @Column(name = "diagnosis", length = 500)
+    private String diagnosis;
+
+    @Column(name = "conclusion", length = 2000)
+    private String conclusion;
+
+    @Column(name = "recommendations", length = 2000)
+    private String recommendations;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", nullable = false, length = 10)
+    private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
+
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
+
     @Column(name = "cancellation_reason", length = 500)
     private String cancellationReason;
 
@@ -185,5 +201,45 @@ public class Appointment extends BaseEntity {
 
     public long getVersion() {
         return version;
+    }
+
+    public String getDiagnosis() {
+        return diagnosis;
+    }
+
+    public void setDiagnosis(String diagnosis) {
+        this.diagnosis = diagnosis;
+    }
+
+    public String getConclusion() {
+        return conclusion;
+    }
+
+    public void setConclusion(String conclusion) {
+        this.conclusion = conclusion;
+    }
+
+    public String getRecommendations() {
+        return recommendations;
+    }
+
+    public void setRecommendations(String recommendations) {
+        this.recommendations = recommendations;
+    }
+
+    public PaymentStatus getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(PaymentStatus paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
+    public LocalDateTime getPaidAt() {
+        return paidAt;
+    }
+
+    public void setPaidAt(LocalDateTime paidAt) {
+        this.paidAt = paidAt;
     }
 }

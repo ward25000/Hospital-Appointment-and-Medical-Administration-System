@@ -16,6 +16,9 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  compression:
+    enabled: true
+    mime-types: text/html,text/css,text/javascript,application/javascript,application/json
   servlet:
     session:
       timeout: 8h
@@ -45,3 +48,30 @@ springdoc:
 app:
   seed:
     enabled: false
+  # Requisites printed on certificates and receipts. Demo values: replace with the real ones.
+  clinic:
+    name-ru: ${CLINIC_NAME_RU:Клиника MedFlow}
+    name-kk: ${CLINIC_NAME_KK:MedFlow клиникасы}
+    name-en: ${CLINIC_NAME_EN:MedFlow Clinic}
+    address-ru: ${CLINIC_ADDRESS_RU:г. Алматы, ул. Абая, 100}
+    address-kk: ${CLINIC_ADDRESS_KK:Алматы қ., Абай к-сі, 100}
+    address-en: ${CLINIC_ADDRESS_EN:100 Abay St., Almaty}
+    bin: ${CLINIC_BIN:000000000000}
+    license: ${CLINIC_LICENSE:№ 00000000}
+    phone: ${CLINIC_PHONE:+7 (727) 120-20-00}
+    email: ${CLINIC_EMAIL:info@medflow.kz}
+    iik: ${CLINIC_IIK:KZ000000000000000000}
+    bik: ${CLINIC_BIK:DEMOKZKA}
+    bank-ru: ${CLINIC_BANK_RU:АО «Демо Банк»}
+    bank-kk: ${CLINIC_BANK_KK:«Демо Банк» АҚ}
+    bank-en: ${CLINIC_BANK_EN:Demo Bank JSC}
+  # Without MAIL_HOST the receipts are stored as .eml files in the outbox folder.
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:465}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    ssl: ${MAIL_SSL:true}
+    starttls: ${MAIL_STARTTLS:false}
+    from: ${MAIL_FROM:no-reply@medflow.kz}
+    outbox-dir: ${MAIL_OUTBOX:mail-outbox}

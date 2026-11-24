@@ -1,4 +1,5 @@
 import { api, getErrorMessage } from '../api.js';
+import { t } from '../i18n.js';
 import {
   icon,
   esc,
@@ -18,6 +19,10 @@ import {
   applyFieldErrors,
   pluralRu,
   genderLabel,
+  formValue,
+  addressFields,
+  readAddress,
+  parseIin,
 } from '../ui.js';
 import { navigate } from '../store.js';
 
@@ -33,7 +38,8 @@ function patientRow(patient, callbacks) {
           ${avatar(patient.fullName)}
           <div class="name-cell-copy">
             <strong>${esc(patient.fullName)}</strong>
-            <small>ID ${patient.id} · ${esc(patient.genderLabel || genderLabel(patient.gender))}</small>
+            <small>${t('ИИН {0}', [esc(patient.iin)])}</small>
+            <small>${esc(genderLabel(patient.gender))}${patient.userId ? `, ${t('есть личный кабинет')}` : ''}</small>
           </div>
         </div>
       </td>
@@ -41,14 +47,14 @@ function patientRow(patient, callbacks) {
         <span class="cell-main">${formatDate(patient.birthDate)}</span>
         <span class="cell-sub">${patient.age} ${pluralRu(patient.age, ['год', 'года', 'лет'])}</span>
       </td>
-      <td>${esc(patient.phone || '—')}</td>
+      <td class="nowrap">${esc(patient.phone || '—')}</td>
       <td>${patient.email ? `<a class="link-button" href="mailto:${esc(patient.email)}">${esc(patient.email)}</a>` : '<span class="muted">—</span>'}</td>
       <td class="muted-cell">${esc(patient.address || '—')}</td>
       <td>
         <div class="actions">
-          <button type="button" class="icon-action" data-appointments="${patient.id}" title="Записи пациента" aria-label="Записи пациента">${icon('calendar')}</button>
-          <button type="button" class="icon-action" data-edit="${patient.id}" title="Редактировать" aria-label="Редактировать пациента">${icon('edit')}</button>
-          <button type="button" class="icon-action danger" data-delete="${patient.id}" title="Удалить" aria-label="Удалить пациента">${icon('trash')}</button>
+          <button type="button" class="icon-action" data-appointments="${patient.id}" title="${t('Записи пациента')}" aria-label="${t('Записи пациента')}">${icon('calendar')}</button>
+          <button type="button" class="icon-action" data-edit="${patient.id}" title="${t('Редактировать')}" aria-label="${t('Редактировать пациента')}">${icon('edit')}</button>
+          <button type="button" class="icon-action danger" data-delete="${patient.id}" title="${t('Удалить')}" aria-label="${t('Удалить пациента')}">${icon('trash')}</button>
         </div>
       </td>
     </tr>
@@ -61,11 +67,11 @@ function renderTable(patients) {
       <div class="table-empty">
         ${emptyState({
           iconName: 'patients',
-          title: 'Пациенты не найдены',
+          title: t('Пациенты не найдены'),
           text: state.query
-            ? 'Попробуйте изменить поисковый запрос или сбросить фильтр.'
-            : 'В картотеке пока нет пациентов. Добавьте первую карточку.',
-          action: `<button type="button" class="btn btn-primary btn-sm" data-new>${icon('user-plus')}<span>Добавить пациента</span></button>`,
+            ? t('Попробуйте изменить поисковый запрос или сбросить фильтр.')
+            : t('В картотеке пока нет пациентов. Добавьте первую карточку.'),
+          action: `<button type="button" class="btn btn-primary btn-sm" data-new>${icon('user-plus')}<span>${t('Добавить пациента')}</span></button>`,
         })}
       </div>
     `;
@@ -74,12 +80,12 @@ function renderTable(patients) {
     <table class="table">
       <thead>
         <tr>
-          <th>Пациент</th>
-          <th>Дата рождения</th>
-          <th>Телефон</th>
+          <th>${t('Пациент')}</th>
+          <th>${t('Дата рождения')}</th>
+          <th>${t('Телефон')}</th>
           <th>Email</th>
-          <th>Адрес</th>
-          <th><span class="sr-only">Действия</span></th>
+          <th>${t('Адрес')}</th>
+          <th><span class="sr-only">${t('Действия')}</span></th>
         </tr>
       </thead>
       <tbody>
@@ -95,22 +101,21 @@ export async function render(root, ctx) {
       <div class="page-toolbar">
         <div class="search-box">
           ${icon('search')}
-          <input class="input" type="search" id="patient-search" placeholder="Поиск по имени, телефону или email" value="${esc(state.query)}">
+          <input class="input" type="search" id="patient-search" placeholder="${t('Поиск по ИИН, имени, телефону или email')}" value="${esc(state.query)}">
         </div>
         <div class="spacer"></div>
-        <button type="button" class="btn btn-secondary btn-icon" id="patient-refresh" title="Обновить">${icon('refresh')}</button>
-        <button type="button" class="btn btn-primary" id="patient-new">${icon('user-plus')}<span>Добавить пациента</span></button>
+        <button type="button" class="btn btn-secondary btn-icon" id="patient-refresh" title="${t('Обновить')}">${icon('refresh')}</button>
+        <button type="button" class="btn btn-primary" id="patient-new">${icon('user-plus')}<span>${t('Добавить пациента')}</span></button>
       </div>
 
       <section class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">Картотека пациентов</div>
-            <div class="card-subtitle" data-count>Загружаем картотеку…</div>
+            <div class="card-title">${t('Картотека пациентов')}</div>
+            <div class="card-subtitle" data-count>${t('Загружаем картотеку…')}</div>
           </div>
-          <span class="metric-inline">${icon('shield')} <span>Персональные данные защищены</span></span>
         </div>
-        <div class="table-wrap" data-table>${loadingState('Загружаем пациентов…')}</div>
+        <div class="table-wrap" data-table>${loadingState(t('Загружаем пациентов…'))}</div>
       </section>
     </div>
   `;
@@ -120,17 +125,17 @@ export async function render(root, ctx) {
   const searchInput = root.querySelector('#patient-search');
 
   const load = async () => {
-    tableContainer.innerHTML = loadingState('Загружаем пациентов…');
+    tableContainer.innerHTML = loadingState(t('Загружаем пациентов…'));
     try {
       const patients = await api.patients.list(state.query);
       tableContainer.innerHTML = renderTable(patients);
       countContainer.textContent = patients.length
-        ? `${patients.length} ${pluralRu(patients.length, ['пациент', 'пациента', 'пациентов'])} в картотеке`
-        : 'Ничего не найдено';
+        ? t('{0} {1} в картотеке', [patients.length, pluralRu(patients.length, ['пациент', 'пациента', 'пациентов'])])
+        : t('Ничего не найдено');
       bindActions(patients);
     } catch (error) {
       tableContainer.innerHTML = errorState(getErrorMessage(error));
-      countContainer.textContent = 'Ошибка загрузки';
+      countContainer.textContent = t('Ошибка загрузки');
       tableContainer.querySelector('[data-retry]')?.addEventListener('click', load);
     }
   };
@@ -179,20 +184,20 @@ export async function render(root, ctx) {
 
 async function removePatient(patient, onDone) {
   const confirmed = await confirmDialog({
-    title: 'Удалить пациента?',
-    message: `Карточка «${patient.fullName}» будет удалена без возможности восстановления. Удаление возможно только при отсутствии записей на приём.`,
-    confirmText: 'Удалить',
-    cancelText: 'Отмена',
+    title: t('Удалить пациента?'),
+    message: t('Карточка «{0}» будет удалена без возможности восстановления. Удаление возможно только при отсутствии записей на приём.', [patient.fullName]),
+    confirmText: t('Удалить'),
+    cancelText: t('Отмена'),
   });
   if (!confirmed) {
     return;
   }
   try {
     await api.patients.remove(patient.id);
-    toast(`Карточка «${patient.fullName}» удалена`, 'success');
+    toast(t('Карточка «{0}» удалена', [patient.fullName]), 'success');
     onDone?.();
   } catch (error) {
-    toast(getErrorMessage(error), 'error', 'Не удалось удалить пациента');
+    toast(getErrorMessage(error), 'error', t('Не удалось удалить пациента'));
   }
 }
 
@@ -200,57 +205,45 @@ export function openPatientForm({ patient = null, onDone = null } = {}) {
   const isEdit = Boolean(patient);
   const formId = `patient-form-${Date.now()}`;
   const modal = openModal({
-    title: isEdit ? 'Редактировать пациента' : 'Новый пациент',
-    subtitle: isEdit ? patient.fullName : 'Заполните контактные данные для картотеки',
+    title: isEdit ? t('Редактировать пациента') : t('Новый пациент'),
+    subtitle: isEdit ? patient.fullName : t('Заполните контактные данные для картотеки'),
     size: 'lg',
     body: `
       <form id="${formId}" class="modal-enter" novalidate>
         <div class="form-alert hidden" data-form-alert role="alert"></div>
+        <div class="field"><label for="${formId}-iin">${t('ИИН *')}</label>
+          <input class="input" id="${formId}-iin" name="iin" inputmode="numeric" maxlength="12" autocomplete="off" value="${esc(patient?.iin || '')}"></div>
+        <div class="form-grid-3">
+          <div class="field"><label for="${formId}-lastName">${t('Фамилия *')}</label>
+            <input class="input" id="${formId}-lastName" name="lastName" maxlength="80" value="${esc(patient?.lastName || '')}"></div>
+          <div class="field"><label for="${formId}-firstName">${t('Имя *')}</label>
+            <input class="input" id="${formId}-firstName" name="firstName" maxlength="80" value="${esc(patient?.firstName || '')}"></div>
+          <div class="field"><label for="${formId}-middleName">${t('Отчество')}</label>
+            <input class="input" id="${formId}-middleName" name="middleName" maxlength="80" value="${esc(patient?.middleName || '')}"></div>
+        </div>
         <div class="form-grid">
-          <div class="field">
-            <label for="${formId}-firstName">Имя *</label>
-            <input class="input" id="${formId}-firstName" name="firstName" maxlength="80" required value="${esc(patient?.firstName || '')}" placeholder="Например, Анна">
-          </div>
-          <div class="field">
-            <label for="${formId}-lastName">Фамилия *</label>
-            <input class="input" id="${formId}-lastName" name="lastName" maxlength="80" required value="${esc(patient?.lastName || '')}" placeholder="Например, Соколова">
-          </div>
-          <div class="field">
-            <label for="${formId}-birthDate">Дата рождения *</label>
-            <input class="input" type="date" id="${formId}-birthDate" name="birthDate" max="${todayISO()}" required value="${esc(patient?.birthDate || '')}">
-          </div>
-          <div class="field">
-            <label for="${formId}-gender">Пол *</label>
-            <select class="select" id="${formId}-gender" name="gender" required>
-              <option value="">Выберите пол</option>
-              <option value="FEMALE" ${patient?.gender === 'FEMALE' ? 'selected' : ''}>Женский</option>
-              <option value="MALE" ${patient?.gender === 'MALE' ? 'selected' : ''}>Мужской</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="${formId}-phone">Телефон *</label>
-            <input class="input" id="${formId}-phone" name="phone" maxlength="25" required value="${esc(patient?.phone || '')}" placeholder="+7 (916) 100-10-01">
-          </div>
-          <div class="field">
-            <label for="${formId}-email">Email</label>
-            <input class="input" type="email" id="${formId}-email" name="email" maxlength="160" value="${esc(patient?.email || '')}" placeholder="patient@example.com">
-          </div>
-          <div class="field span-2">
-            <label for="${formId}-address">Адрес</label>
-            <input class="input" id="${formId}-address" name="address" maxlength="300" value="${esc(patient?.address || '')}" placeholder="Город, улица, дом">
-          </div>
+          <div class="field"><label for="${formId}-birthDate">${t('Дата рождения *')}</label>
+            <input class="input" type="date" id="${formId}-birthDate" name="birthDate" max="${todayISO()}" value="${esc(patient?.birthDate || '')}"></div>
+          <div class="field"><label for="${formId}-gender">${t('Пол *')}</label>
+            <select class="select" id="${formId}-gender" name="gender">
+              <option value="">${t('Выберите пол')}</option>
+              <option value="FEMALE" ${patient?.gender === 'FEMALE' ? 'selected' : ''}>${t('Женский')}</option>
+              <option value="MALE" ${patient?.gender === 'MALE' ? 'selected' : ''}>${t('Мужской')}</option>
+            </select></div>
+          <div class="field"><label for="${formId}-phone">${t('Телефон *')}</label>
+            <input class="input" type="tel" id="${formId}-phone" name="phone" maxlength="25" value="${esc(patient?.phone || '')}"></div>
+          <div class="field"><label for="${formId}-email">Email</label>
+            <input class="input" type="email" id="${formId}-email" name="email" maxlength="160" value="${esc(patient?.email || '')}"></div>
         </div>
-        <div class="info-note">
-          ${icon('shield')}
-          <span>Используются только демонстрационные данные. Персональные сведения не передаются третьим лицам.</span>
-        </div>
+        <div class="form-section"><h4>${t('Адрес проживания')}</h4>${addressFields(formId, patient || {})}
+          ${patient && !patient.city ? `<p class="muted mt-8">${t('Сейчас в карте')}: ${esc(patient.address)}</p>` : ''}</div>
       </form>
     `,
     footer: `
       <span class="spacer"></span>
-      <button type="button" class="btn btn-secondary" data-cancel>Отмена</button>
+      <button type="button" class="btn btn-secondary" data-cancel>${t('Отмена')}</button>
       <button type="submit" form="${formId}" class="btn btn-primary" data-submit>
-        ${icon('check')}<span>${isEdit ? 'Сохранить' : 'Добавить пациента'}</span>
+        ${icon('check')}<span>${isEdit ? t('Сохранить') : t('Добавить пациента')}</span>
       </button>
     `,
   });
@@ -259,36 +252,43 @@ export function openPatientForm({ patient = null, onDone = null } = {}) {
   const submitButton = modal.footer.querySelector('[data-submit]');
   modal.footer.querySelector('[data-cancel]').addEventListener('click', () => modal.close());
 
+  form.elements.namedItem('iin').addEventListener('input', (event) => {
+    const value = event.target.value.replace(/\D/g, '').slice(0, 12);
+    event.target.value = value;
+    const parsed = parseIin(value);
+    if (parsed) {
+      const birthDate = form.elements.namedItem('birthDate');
+      const gender = form.elements.namedItem('gender');
+      if (!birthDate.value) birthDate.value = parsed.birthDate;
+      if (!gender.value) gender.value = parsed.gender;
+    }
+  });
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     clearFieldErrors(form);
     const values = {
-      firstName: form.elements.namedItem('firstName').value.trim(),
-      lastName: form.elements.namedItem('lastName').value.trim(),
-      birthDate: form.elements.namedItem('birthDate').value,
-      gender: form.elements.namedItem('gender').value,
-      phone: form.elements.namedItem('phone').value.trim(),
-      email: form.elements.namedItem('email').value.trim() || null,
-      address: form.elements.namedItem('address').value.trim() || null,
+      iin: formValue(form, 'iin'),
+      firstName: formValue(form, 'firstName'),
+      lastName: formValue(form, 'lastName'),
+      middleName: formValue(form, 'middleName') || null,
+      birthDate: formValue(form, 'birthDate') || null,
+      gender: formValue(form, 'gender') || null,
+      phone: formValue(form, 'phone'),
+      email: formValue(form, 'email') || null,
+      ...readAddress(form),
     };
-
-    if (!values.firstName || !values.lastName || !values.birthDate || !values.gender || !values.phone) {
-      showFormAlert(form, 'Заполните обязательные поля, отмеченные звёздочкой');
-      if (!values.firstName) form.elements.namedItem('firstName').classList.add('is-invalid');
-      if (!values.lastName) form.elements.namedItem('lastName').classList.add('is-invalid');
-      if (!values.birthDate) form.elements.namedItem('birthDate').classList.add('is-invalid');
-      if (!values.gender) form.elements.namedItem('gender').classList.add('is-invalid');
-      if (!values.phone) form.elements.namedItem('phone').classList.add('is-invalid');
-      return;
+    if (!values.city && !values.street && !values.house && patient && !patient.city) {
+      values.address = patient.address;
     }
 
-    setButtonLoading(submitButton, true, isEdit ? 'Сохраняем…' : 'Добавляем…');
+    setButtonLoading(submitButton, true, isEdit ? t('Сохраняем…') : t('Добавляем…'));
     try {
       const saved = isEdit
         ? await api.patients.update(patient.id, values)
         : await api.patients.create(values);
       modal.close();
-      toast(isEdit ? 'Карточка пациента обновлена' : `Пациент «${saved.fullName}» добавлен в картотеку`, 'success');
+      toast(isEdit ? t('Карточка пациента обновлена') : t('Пациент «{0}» добавлен в картотеку', [saved.fullName]), 'success');
       onDone?.(saved);
     } catch (error) {
       applyFieldErrors(form, error.fieldErrors);

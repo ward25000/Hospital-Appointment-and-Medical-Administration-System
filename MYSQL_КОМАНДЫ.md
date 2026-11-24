@@ -29,7 +29,7 @@
 ### Вариант Б — одна команда в PowerShell
 
 ```powershell
-& "$env:USERPROFILE\mysql84\bin\mysql.exe" --protocol=tcp --host=127.0.0.1 --port=3306 --user=root --default-character-set=utf8mb4 --database=hospital_db -e "SHOW TABLES;"
+& "$env:USERPROFILE\mysql84\bin\mysql.exe" --protocol=tcp --host=127.0.0.1 --port=3306 --user=hospital --password=hospital_pass --default-character-set=utf8mb4 --database=hospital_db -e "SHOW TABLES;"
 ```
 
 ### Вариант В — через пользователя приложения (не root)
@@ -43,7 +43,7 @@ Remove-Item Env:\MYSQL_PWD
 > Чтобы не повторять длинный путь каждый раз, можно один раз сделать функцию:
 >
 > ```powershell
-> function sql { & "$env:USERPROFILE\mysql84\bin\mysql.exe" --protocol=tcp --host=127.0.0.1 --port=3306 --user=root --default-character-set=utf8mb4 --database=hospital_db -e $args[0] }
+> function sql { & "$env:USERPROFILE\mysql84\bin\mysql.exe" --protocol=tcp --host=127.0.0.1 --port=3306 --user=hospital --password=hospital_pass --default-character-set=utf8mb4 --database=hospital_db -e $args[0] }
 > ```
 >
 > Дальше просто: `sql "SHOW TABLES;"`.
@@ -53,8 +53,8 @@ Remove-Item Env:\MYSQL_PWD
 ```text
 Хост:         127.0.0.1
 Порт:         3306
-Пользователь: hospital        (или root без пароля)
-Пароль:       hospital_pass   (у root пароля нет)
+Пользователь: hospital
+Пароль:       hospital_pass
 База:         hospital_db
 ```
 
@@ -248,10 +248,10 @@ WHERE username = 'doctor.petrova';
 
 ### Забыл пароль root от MySQL
 
-На этой машине у `root` пароля нет, поэтому хватает `--user=root`. Если пароль когда-то задали:
+Для работы root не нужен: скрипты заходят под `hospital`. Пароль root пустой или `root_pass` (зависит от установки). Не подходит ни один — запусти `full-reset.cmd`. Если пароль когда-то задали:
 
 ```powershell
-& "$env:USERPROFILE\mysql84\bin\mysql.exe" --protocol=tcp --host=127.0.0.1 --port=3306 --user=root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '';"
+& "$env:USERPROFILE\mysql84\bin\mysql.exe" --protocol=tcp --host=127.0.0.1 --port=3306 --user=root --password -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '';"
 ```
 
 (сработает, только если ты уже подключён без пароля).
@@ -432,13 +432,13 @@ WHERE SCHEMA_NAME = 'hospital_db';
 ### Сделать копию базы
 
 ```powershell
-& "$env:USERPROFILE\mysql84\bin\mysqldump.exe" --protocol=tcp --host=127.0.0.1 --port=3306 --user=root --default-character-set=utf8mb4 --databases hospital_db --result-file="$env:USERPROFILE\Desktop\hospital_db_backup.sql"
+& "$env:USERPROFILE\mysql84\bin\mysqldump.exe" --protocol=tcp --host=127.0.0.1 --port=3306 --user=hospital --password=hospital_pass --default-character-set=utf8mb4 --databases hospital_db --result-file="$env:USERPROFILE\Desktop\hospital_db_backup.sql"
 ```
 
 ### Восстановить из копии
 
 ```powershell
-Get-Content "$env:USERPROFILE\Desktop\hospital_db_backup.sql" -Raw | & "$env:USERPROFILE\mysql84\bin\mysql.exe" --protocol=tcp --host=127.0.0.1 --port=3306 --user=root --default-character-set=utf8mb4
+Get-Content "$env:USERPROFILE\Desktop\hospital_db_backup.sql" -Raw | & "$env:USERPROFILE\mysql84\bin\mysql.exe" --protocol=tcp --host=127.0.0.1 --port=3306 --user=hospital --password=hospital_pass --default-character-set=utf8mb4
 ```
 
 ### Полный сброс демо-данных
@@ -462,7 +462,7 @@ Get-Content "$env:USERPROFILE\Desktop\hospital_db_backup.sql" -Raw | & "$env:USE
 |---|---|---|
 | `Unknown MySQL server host '127'` | написано `-h127.0.0.1` | писать `--host=127.0.0.1` |
 | `ERROR 2003 (HY000): Can't connect` | MySQL не запущен | `start.cmd` или `docker compose up -d` |
-| `Access denied for user 'hospital'` | неверный пароль | пароль `hospital_pass`; или `--user=root` |
+| `Access denied for user 'hospital'` | неверный пароль | пароль `hospital_pass`; если не подходит, `full-reset.cmd` |
 | `Unknown database 'hospital_db'` | база ещё не создана | запустить `start.cmd` (Flyway создаст) |
 | `Duplicate entry ... uk_appointments_doctor_slot_status` | попытка записать второго пациента на тот же слот | это правильное поведение, выбирай другой слот |
 | `Cannot add or update a child row: a foreign key constraint fails` | ссылка на несуществующую строку | сначала создай связанную запись |

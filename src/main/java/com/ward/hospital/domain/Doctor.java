@@ -1,5 +1,6 @@
 package com.ward.hospital.domain;
 
+import com.ward.hospital.i18n.I18n;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -35,6 +36,9 @@ public class Doctor extends BaseEntity {
     @Column(name = "last_name", nullable = false, length = 80)
     private String lastName;
 
+    @Column(name = "middle_name", length = 80)
+    private String middleName;
+
     @Column(name = "email", nullable = false, length = 160)
     private String email;
 
@@ -46,6 +50,12 @@ public class Doctor extends BaseEntity {
 
     @Column(name = "bio", length = 1000)
     private String bio;
+
+    @Column(name = "bio_kk", length = 1000)
+    private String bioKk;
+
+    @Column(name = "bio_en", length = 1000)
+    private String bioEn;
 
     @Column(name = "active", nullable = false)
     private boolean active = true;
@@ -144,6 +154,35 @@ public class Doctor extends BaseEntity {
     }
 
     public String getFullName() {
-        return firstName + " " + lastName;
+        return middleName == null ? lastName + " " + firstName
+                : lastName + " " + firstName + " " + middleName;
+    }
+
+    public String getMiddleName() {
+        return middleName;
+    }
+
+    public void setMiddleName(String middleName) {
+        this.middleName = middleName;
+    }
+
+    public String getBioKk() {
+        return bioKk;
+    }
+
+    public void setBioKk(String bioKk) {
+        this.bioKk = bioKk;
+    }
+
+    public String getBioEn() {
+        return bioEn;
+    }
+
+    public void setBioEn(String bioEn) {
+        this.bioEn = bioEn;
+    }
+
+    public String bio(String lang) {
+        return I18n.pick(lang, bio, bioKk, bioEn);
     }
 }

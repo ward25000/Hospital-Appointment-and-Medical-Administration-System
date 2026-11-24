@@ -41,6 +41,12 @@ public class ReferralController {
         return referralService.findIncoming(currentUserService.requirePrincipal(), status);
     }
 
+    @GetMapping("/outgoing")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public List<ReferralResponse> outgoing() {
+        return referralService.findOutgoing(currentUserService.requirePrincipal());
+    }
+
     @GetMapping("/mine")
     @PreAuthorize("hasRole('PATIENT')")
     public List<ReferralResponse> mine() {

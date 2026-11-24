@@ -1,5 +1,6 @@
 package com.ward.hospital.service;
 
+import com.ward.hospital.i18n.I18n;
 import com.ward.hospital.domain.AppointmentStatus;
 import com.ward.hospital.domain.Doctor;
 import com.ward.hospital.domain.DoctorSchedule;
@@ -70,7 +71,7 @@ public class AvailabilityService {
                     date.getDayOfWeek(),
                     DayOfWeekLabels.of(date.getDayOfWeek()),
                     false,
-                    "В этот день врач не принимает",
+                    I18n.t("В этот день врач не принимает"),
                     0,
                     service != null ? service.getDurationMinutes() : 0,
                     List.of()
@@ -93,16 +94,16 @@ public class AvailabilityService {
             if (end.toLocalTime().isAfter(schedule.getEndTime())
                     || !end.toLocalDate().equals(date)) {
                 available = false;
-                reason = "Недостаточно времени до конца смены";
+                reason = I18n.t("Недостаточно времени до конца смены");
             } else if (!start.isAfter(now)) {
                 available = false;
-                reason = "Время уже прошло";
+                reason = I18n.t("Время уже прошло");
             } else {
                 long conflicts = appointmentRepository.countOverlapping(
                         doctorId, start, end, AppointmentStatus.CANCELLED, excludeAppointmentId);
                 if (conflicts > 0) {
                     available = false;
-                    reason = "Занято";
+                    reason = I18n.t("Занято");
                 }
             }
             slots.add(new SlotResponse(start, end, available, reason));
@@ -110,8 +111,8 @@ public class AvailabilityService {
 
         long availableCount = slots.stream().filter(SlotResponse::available).count();
         String message = availableCount == 0
-                ? "На эту дату нет свободных слотов"
-                : "Свободных слотов: " + availableCount;
+                ? I18n.t("На эту дату нет свободных слотов")
+                : I18n.t("Свободных слотов: {0}", availableCount);
 
         return new AvailabilityResponse(
                 doctor.getId(),

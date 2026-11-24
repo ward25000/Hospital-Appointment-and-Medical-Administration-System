@@ -1,4 +1,5 @@
 import { api, getErrorMessage } from '../api.js';
+import { t } from '../i18n.js';
 import {
   icon,
   esc,
@@ -7,30 +8,16 @@ import {
   formatDateShort,
   formatMoney,
   formatNumber,
-  todayISO,
   statusBadge,
-  initials,
-  avatarTone,
   emptyState,
   errorState,
   pluralRu,
-  WEEKDAYS_SHORT,
+  weekdaysShort,
   weekdayIndex,
 } from '../ui.js';
 import { canSchedule, hasRole, navigate } from '../store.js';
-import { openBooking, openDetails } from './appointments.js';
-
-function greeting() {
-  const hour = new Date().getHours();
-  if (hour < 5) return 'Доброй ночи';
-  if (hour < 12) return 'Доброе утро';
-  if (hour < 18) return 'Добрый день';
-  return 'Добрый вечер';
-}
-
-function firstName(fullName) {
-  return String(fullName || '').split(/\s+/)[0] || 'коллега';
-}
+import { openBooking, openDetails, openComplete, markNoShow } from './appointments.js';
+import { openPatientForm } from './patients.js';
 
 function quickAction({ action, iconName, title, subtitle, route = null }) {
   return `
@@ -55,7 +42,7 @@ function appointmentRow(appointment) {
       </div>
       <div class="appointment-side">
         <span class="appointment-price">${formatMoney(appointment.price)}</span>
-        ${statusBadge(appointment.status, appointment.statusLabel)}
+        ${statusBadge(appointment.status)}
       </div>
     </div>
   `;
@@ -63,7 +50,7 @@ function appointmentRow(appointment) {
 
 function upcomingRow(appointment) {
   const day = formatDateShort(appointment.startTime);
-  const weekday = WEEKDAYS_SHORT[weekdayIndex(appointment.startTime)];
+  const weekday = weekdaysShort()[weekdayIndex(appointment.startTime)];
   return `
     <div class="upcoming-item" role="button" tabindex="0" data-appointment-id="${appointment.id}">
       <div class="upcoming-date">
@@ -83,35 +70,37 @@ function buildMarkup(data, user) {
   const isDoctor = user.role === 'DOCTOR';
   const appointmentsToday = data.todayAppointments || [];
   const upcoming = data.upcomingAppointments || [];
+  const unmarked = data.unmarkedAppointments || [];
+  const canMark = hasRole('ADMIN', 'DOCTOR');
 
   const kpis = [
     {
-      label: 'Приёмов сегодня',
+      label: t('Приёмов сегодня'),
       value: formatNumber(data.todayTotal),
       iconName: 'calendar',
       tone: '',
-      foot: `${pluralRu(data.todayTotal, ['запись', 'записи', 'записей'])} в расписании`,
+      foot: t('{0} в расписании', [pluralRu(data.todayTotal, ['запись', 'записи', 'записей'])]),
     },
     {
-      label: 'Ближайшие приёмы',
+      label: t('Ближайшие приёмы'),
       value: formatNumber(data.upcomingTotal),
       iconName: 'clock',
       tone: 'blue',
-      foot: 'запланировано на будущее',
+      foot: t('запланировано на будущее'),
     },
     {
-      label: 'Завершено за месяц',
+      label: t('Завершено за месяц'),
       value: formatNumber(data.completedThisMonth),
       iconName: 'clipboard-check',
       tone: 'amber',
-      foot: `<strong>${formatNumber(data.uniquePatientsThisMonth)}</strong> уникальных пациентов`,
+      foot: `<strong>${formatNumber(data.uniquePatientsThisMonth)}</strong> ${t('уникальных пациентов')}`,
     },
     {
-      label: 'Выручка за месяц',
+      label: t('Выручка за месяц'),
       value: formatMoney(data.revenueThisMonth),
       iconName: 'wallet',
       tone: 'rose',
-      foot: 'по завершённым приёмам',
+      foot: t('по завершённым приёмам'),
       compact: true,
     },
   ];
@@ -121,67 +110,80 @@ function buildMarkup(data, user) {
       quickAction({
         action: 'booking',
         iconName: 'plus',
-        title: 'Новая запись',
-        subtitle: 'Подобрать свободный слот врача',
+        title: t('Новая запись'),
+        subtitle: t('Подобрать свободный слот врача'),
       }),
       quickAction({
         route: 'patients?new=1',
         iconName: 'user-plus',
-        title: 'Добавить пациента',
-        subtitle: 'Создать карточку в картотеке',
+        title: t('Добавить пациента'),
+        subtitle: t('Создать карточку в картотеке'),
       }),
     ] : []),
     quickAction({
       route: 'calendar',
       iconName: 'calendar',
-      title: 'Календарь приёмов',
-      subtitle: 'Загрузка клиники по дням',
+      title: t('Календарь приёмов'),
+      subtitle: t('Загрузка клиники по дням'),
     }),
     ...(isDoctor ? [
       quickAction({
+        route: 'referral-inbox',
+        iconName: 'inbox',
+        title: t('Направления'),
+        subtitle: t('Пациенты, направленные к вам'),
+      }),
+      quickAction({
+        action: 'patient',
+        iconName: 'user-plus',
+        title: t('Карта пациента'),
+        subtitle: t('Завести новую карту по ИИН'),
+      }),
+      quickAction({
         route: 'schedules',
         iconName: 'schedules',
-        title: 'Моё расписание',
-        subtitle: 'Смены и интервалы приёма',
+        title: t('Моё расписание'),
+        subtitle: t('Смены и интервалы приёма'),
       }),
     ] : []),
     ...(hasRole('ADMIN') ? [
       quickAction({
         route: 'reports',
         iconName: 'reports',
-        title: 'Отчёты клиники',
-        subtitle: 'Выручка и нагрузка врачей',
+        title: t('Отчёты клиники'),
+        subtitle: t('Выручка и нагрузка врачей'),
       }),
     ] : []),
     ...(hasRole('RECEPTIONIST') ? [
       quickAction({
         route: 'reports',
         iconName: 'reports',
-        title: 'Отчёты',
-        subtitle: 'Статистика приёмов за период',
+        title: t('Отчёты'),
+        subtitle: t('Статистика приёмов за период'),
       }),
     ] : []),
   ];
 
   return `
     <div class="stack">
-      <section class="greeting-strip">
-        <div>
-          <span class="greeting-badge">${esc(greeting())}, ${esc(firstName(user.fullName))}</span>
-          <h2>${isDoctor ? 'Ваш приёмный день под контролем' : 'Клиника работает по плану'}</h2>
-          <p>${isDoctor
-            ? 'Ниже — ваши приёмы на сегодня и ближайшие записи пациентов.'
-            : 'Сводка по записям, загрузке специалистов и выручке за текущий месяц.'}</p>
-        </div>
-        <div class="greeting-date">${formatDateLong(data.date || todayISO())}</div>
-      </section>
+      ${unmarked.length ? `
+      <section class="attention">
+        <div class="attention-head"><strong>${t('Отметьте, состоялся ли приём')}: ${unmarked.length}</strong>
+          <p>${t('Время этих визитов прошло, а статус не указан. Без отметки визит не попадёт в историю пациента.')}</p></div>
+        ${unmarked.slice(0, 5).map((visit) => `
+          <div class="attention-row">
+            <div><strong class="cell-main">${esc(visit.patientName)}</strong>
+              <div class="muted">${formatDateLong(visit.startTime)}, ${formatTime(visit.startTime)}${isDoctor ? '' : `, ${esc(visit.doctorName)}`}</div></div>
+            ${canMark ? `<div class="flex gap-8"><button type="button" class="btn btn-primary btn-sm" data-attended="${visit.id}">${t('Прошел')}</button>
+              <button type="button" class="btn btn-danger-soft btn-sm" data-absent="${visit.id}">${t('Не явился')}</button></div>` : ''}
+          </div>`).join('')}
+      </section>` : ''}
 
       <section class="kpi-grid">
         ${kpis.map((kpi) => `
           <article class="kpi-card">
             <div class="kpi-top">
               <span class="kpi-label">${esc(kpi.label)}</span>
-              <span class="kpi-icon ${kpi.tone}">${icon(kpi.iconName)}</span>
             </div>
             <div class="kpi-value" ${kpi.compact ? 'style="font-size:23px"' : ''}>${esc(kpi.value)}</div>
             <div class="kpi-foot">${kpi.foot}</div>
@@ -194,23 +196,23 @@ function buildMarkup(data, user) {
           <section class="card">
             <div class="card-header">
               <div>
-                <div class="card-title">Приёмы сегодня</div>
+                <div class="card-title">${t('Приёмы сегодня')}</div>
                 <div class="card-subtitle">${appointmentsToday.length
-                  ? `${appointmentsToday.length} ${pluralRu(appointmentsToday.length, ['запись', 'записи', 'записей'])} в расписании`
-                  : 'На сегодня записей нет'}</div>
+                  ? t('{0} {1} в расписании', [appointmentsToday.length, pluralRu(appointmentsToday.length, ['запись', 'записи', 'записей'])])
+                  : t('На сегодня записей нет')}</div>
               </div>
-              <a class="link-button" href="#/appointments">Все записи ${icon('arrow-right')}</a>
+              <a class="link-button" href="#/appointments">${t('Все записи')} ${icon('arrow-right')}</a>
             </div>
             ${appointmentsToday.length
               ? `<div class="appointment-list">${appointmentsToday.map(appointmentRow).join('')}</div>`
               : emptyState({
                 iconName: 'calendar',
-                title: 'Сегодня приёмов нет',
+                title: t('Сегодня приёмов нет'),
                 text: canSchedule()
-                  ? 'Создайте запись — система проверит свободные слоты врача.'
-                  : 'Расписание на сегодня свободно.',
+                  ? t('Создайте запись — система проверит свободные слоты врача.')
+                  : t('Расписание на сегодня свободно.'),
                 action: canSchedule()
-                  ? `<button type="button" class="btn btn-primary btn-sm" data-action="booking">${icon('plus')}<span>Создать запись</span></button>`
+                  ? `<button type="button" class="btn btn-primary btn-sm" data-action="booking">${icon('plus')}<span>${t('Создать запись')}</span></button>`
                   : '',
               })}
           </section>
@@ -218,17 +220,17 @@ function buildMarkup(data, user) {
           <section class="card">
             <div class="card-header">
               <div>
-                <div class="card-title">Ближайшие приёмы</div>
-                <div class="card-subtitle">Следующие подтверждённые визиты</div>
+                <div class="card-title">${t('Ближайшие приёмы')}</div>
+                <div class="card-subtitle">${t('Следующие подтверждённые визиты')}</div>
               </div>
-              <a class="link-button" href="#/calendar">Календарь ${icon('arrow-right')}</a>
+              <a class="link-button" href="#/calendar">${t('Календарь')} ${icon('arrow-right')}</a>
             </div>
             ${upcoming.length
               ? `<div class="upcoming-list">${upcoming.map(upcomingRow).join('')}</div>`
               : emptyState({
                 iconName: 'clock',
-                title: 'Ближайших записей нет',
-                text: 'На будущие даты пока не создано ни одного приёма.',
+                title: t('Ближайших записей нет'),
+                text: t('На будущие даты пока не создано ни одного приёма.'),
               })}
           </section>
         </div>
@@ -237,26 +239,12 @@ function buildMarkup(data, user) {
           <section class="card">
             <div class="card-header">
               <div>
-                <div class="card-title">Быстрые действия</div>
-                <div class="card-subtitle">Частые операции в один клик</div>
+                <div class="card-title">${t('Быстрые действия')}</div>
+                <div class="card-subtitle">${t('Частые операции в один клик')}</div>
               </div>
             </div>
             <div class="quick-actions">
               ${actions.join('')}
-            </div>
-          </section>
-
-          <section class="card card-pad">
-            <div class="flex items-center gap-12">
-              <span class="avatar avatar-lg avatar-blue">${esc(initials(user.fullName))}</span>
-              <div>
-                <div class="cell-main">${esc(user.fullName)}</div>
-                <div class="cell-sub">${esc(user.roleLabel || 'Сотрудник клиники')}</div>
-              </div>
-            </div>
-            <div class="info-note mt-16">
-              ${icon('shield')}
-              <span>Данные отображаются с учётом вашей роли. Сервер дополнительно проверяет права на каждую операцию.</span>
             </div>
           </section>
         </div>
@@ -267,7 +255,7 @@ function buildMarkup(data, user) {
 
 export async function render(root, ctx) {
   root.innerHTML = `
-    <div class="page-loading"><span class="spinner"></span><span>Загружаем сводку клиники…</span></div>
+    <div class="page-loading"><span class="spinner"></span><span>${t('Загружаем сводку клиники…')}</span></div>
   `;
 
   let data;
@@ -293,6 +281,15 @@ export async function render(root, ctx) {
     });
   });
 
+  root.querySelectorAll('[data-attended]').forEach((button) => {
+    button.addEventListener('click', () => openComplete(Number(button.dataset.attended), { onDone: refresh }));
+  });
+  root.querySelectorAll('[data-absent]').forEach((button) => {
+    button.addEventListener('click', () => markNoShow(Number(button.dataset.absent), refresh));
+  });
+  root.querySelectorAll('[data-action="patient"]').forEach((button) => {
+    button.addEventListener('click', () => openPatientForm());
+  });
   root.querySelectorAll('[data-action="booking"]').forEach((button) => {
     button.addEventListener('click', () => openBooking({ onDone: refresh }));
   });

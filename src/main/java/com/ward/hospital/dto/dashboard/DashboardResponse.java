@@ -14,6 +14,7 @@ public record DashboardResponse(
         long uniquePatientsThisMonth,
         BigDecimal revenueThisMonth,
         List<AppointmentResponse> todayAppointments,
-        List<AppointmentResponse> upcomingAppointments
+        List<AppointmentResponse> upcomingAppointments,
+        List<AppointmentResponse> unmarkedAppointments
 ) {
 }

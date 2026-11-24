@@ -31,7 +31,9 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username.trim())
+        String login = username.trim();
+        User user = userRepository.findByUsername(login)
+                .or(() -> patientRepository.findByIin(login).map(Patient::getUser))
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден"));
 
         Long doctorId = null;

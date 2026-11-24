@@ -12,30 +12,36 @@
 param(
     [ValidateSet('show', 'console', 'gui')]
     [string]$Mode = 'show',
-    [string]$MySqlHome = "$env:USERPROFILE\mysql84"
+    [string]$MySqlHome
 )
+. (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'medflow-common.ps1')
+$ErrorActionPreference = 'Continue'
 
-try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
-
+$MySqlHome = Resolve-MfMySqlHome $MySqlHome
 $mysql = Join-Path $MySqlHome 'bin\mysql.exe'
-if (-not (Test-Path $mysql)) {
-    Write-Host "MySQL not found in $MySqlHome. Run setup.cmd first." -ForegroundColor Red
+if (-not (Test-Path -LiteralPath $mysql)) {
+    Write-Host "MySQL не найдена в $MySqlHome. Запусти setup.cmd." -ForegroundColor Red
+    exit 1
+}
+if ($Mode -ne 'gui' -and -not (Test-MfAppUser $MySqlHome 3306)) {
+    Write-Host 'База не отвечает. Сначала запусти start.cmd (если не поможет, full-reset.cmd).' -ForegroundColor Red
     exit 1
 }
 
 # ВАЖНО: --host=..., а не -h127.0.0.1. PowerShell "съедает" -h127.0.0.1 до "-h127".
+$env:MYSQL_PWD = $script:MfPassword
 $common = @(
     '--protocol=tcp',
     '--host=127.0.0.1',
     '--port=3306',
-    '--user=root',
+    "--user=$script:MfUser",
     '--default-character-set=utf8mb4',
     '--database=hospital_db'
 )
 
 function Invoke-Sql {
     param([string]$Sql)
-    & $mysql @common -e $Sql 2>&1
+    $Sql | & $mysql @common --table 2>&1
 }
 
 if ($Mode -eq 'console') {
@@ -46,6 +52,7 @@ if ($Mode -eq 'console') {
 
 if ($Mode -eq 'gui') {
     $candidates = @(
+        (Join-Path $script:MfKit 'tools\heidisql\heidisql.exe'),
         "$env:ProgramFiles\HeidiSQL\heidisql.exe",
         "${env:ProgramFiles(x86)}\HeidiSQL\heidisql.exe",
         "$env:LOCALAPPDATA\Programs\HeidiSQL\heidisql.exe",
@@ -54,7 +61,7 @@ if ($Mode -eq 'gui') {
     $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
     if ($found) {
         Write-Host "Starting HeidiSQL: $found" -ForegroundColor Cyan
-        Start-Process -FilePath $found
+        Start-Process -FilePath $found -ArgumentList '-h=127.0.0.1', '-u=hospital', '-p=hospital_pass', '-P=3306', '-db=hospital_db'
     } else {
         Write-Host "HeidiSQL is not installed. Download the portable version here:" -ForegroundColor Yellow
         Write-Host "  https://www.heidisql.com/download.php" -ForegroundColor Yellow
@@ -94,6 +101,7 @@ UNION ALL SELECT 'users', COUNT(*) FROM users
 UNION ALL SELECT 'medical_services', COUNT(*) FROM medical_services
 UNION ALL SELECT 'appointments', COUNT(*) FROM appointments
 UNION ALL SELECT 'referrals', COUNT(*) FROM referrals
+UNION ALL SELECT 'payments', COUNT(*) FROM payments
 UNION ALL SELECT 'flyway_schema_history', COUNT(*) FROM flyway_schema_history;
 "@
 
