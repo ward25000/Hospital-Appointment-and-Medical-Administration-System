@@ -29,6 +29,9 @@ try {
     if (-not (Test-Path -LiteralPath (Join-Path $mysqlFolder 'bin\mysqld.exe'))) {
         throw "MySQL не найдена в $mysqlFolder. Запусти setup.cmd: он её установит."
     }
+    if (-not $NoStart -and -not (Resolve-MfJavaHome)) {
+        throw 'Не найдена Java 17 или новее. Сброс не выполнен; запусти setup.cmd и проверь, что установка завершилась успешно.'
+    }
     Write-Host "MySQL: $mysqlFolder"
     Write-Host 'База станет новой, с демо-данными. Старая останется рядом, в папке data-backup-...'
     if (-not $Yes) {

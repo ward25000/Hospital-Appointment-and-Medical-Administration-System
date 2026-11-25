@@ -74,6 +74,6 @@ try {
     Write-Host ''
     Write-Host "ОШИБКА: $($_.Exception.Message)" -ForegroundColor Red
     Write-Host ''
-    Write-Host 'Если не получается, запусти full-reset.cmd: он всё настроит заново.' -ForegroundColor Yellow
+    Write-Host 'При проблеме с базой запусти full-reset.cmd. Для установки Java нужен setup.cmd.' -ForegroundColor Yellow
     exit 1
 }

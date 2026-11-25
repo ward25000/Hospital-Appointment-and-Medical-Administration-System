@@ -55,9 +55,20 @@ function Resolve-MfJavaHome {
     $config = Get-MfConfig
     $candidates = @((Join-Path $script:MfKit 'runtime\jdk-21'))
     if ($config -and $config.JavaHome) { $candidates += $config.JavaHome }
+    $portableJdkRoot = Join-Path $script:MfTools 'jdk'
+    if (Test-Path -LiteralPath $portableJdkRoot) {
+        $candidates += @(Get-ChildItem -LiteralPath $portableJdkRoot -Directory -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'bin\java.exe') } |
+            Sort-Object Name -Descending |
+            ForEach-Object { $_.FullName })
+    }
     $candidates += [Environment]::GetEnvironmentVariable('JAVA_HOME', 'User')
     $candidates += [Environment]::GetEnvironmentVariable('JAVA_HOME', 'Machine')
     $candidates += $env:JAVA_HOME
+    $javaCommand = Get-Command java.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($javaCommand -and $javaCommand.Source) {
+        $candidates += Split-Path -Parent (Split-Path -Parent $javaCommand.Source)
+    }
     foreach ($item in $candidates) {
         if ($item -and (Get-MfJavaMajor $item) -ge 17) { return $item }
     }
