@@ -29,7 +29,10 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
               and (:status is null or a.status = :status)
               and (:query is null
                    or lower(concat(a.patient.firstName, ' ', a.patient.lastName)) like lower(concat('%', :query, '%'))
+                   or lower(concat(a.patient.lastName, ' ', a.patient.firstName)) like lower(concat('%', :query, '%'))
                    or lower(concat(a.doctor.firstName, ' ', a.doctor.lastName)) like lower(concat('%', :query, '%'))
+                   or lower(concat(a.doctor.lastName, ' ', a.doctor.firstName)) like lower(concat('%', :query, '%'))
+                   or a.patient.iin like concat('%', :query, '%')
                    or a.patient.phone like concat('%', :query, '%'))
             order by a.startTime asc
             """)
@@ -104,7 +107,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
     @Query("""
             select a.doctor.id as doctorId,
-                   concat(a.doctor.firstName, ' ', a.doctor.lastName) as doctorName,
+                   concat(a.doctor.lastName, ' ', a.doctor.firstName) as doctorName,
                    a.doctor.specialization.name as specialization,
                    count(a) as total,
                    sum(case when a.status = :completed then 1 else 0 end) as completed,

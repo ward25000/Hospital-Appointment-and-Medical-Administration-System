@@ -1,9 +1,10 @@
 import { api, getErrorMessage } from '../api.js';
+import { t } from '../i18n.js';
 import {
   icon,
   esc,
   statusBadge,
-  statusChip,
+  STATUS_CLASSES,
   formatDateLong,
   formatTime,
   formatMoney,
@@ -15,7 +16,7 @@ import {
   monthTitle,
   weekdayName,
   weekdayIndex,
-  WEEKDAYS_SHORT,
+  weekdaysShort,
   openModal,
   toast,
   emptyState,
@@ -78,12 +79,12 @@ function renderGrid(container, appointments, ctx) {
         <span class="day-number">${date.getDate()}</span>
         <span class="calendar-chips">
           ${dayAppointments.slice(0, 2).map((appointment) => `
-            <span class="calendar-chip ${appointment.status === 'SCHEDULED' ? 'status-scheduled' : appointment.status === 'COMPLETED' ? 'status-completed' : 'status-cancelled'}">
+            <span class="calendar-chip ${STATUS_CLASSES[appointment.status] || ''}">
               ${formatTime(appointment.startTime)} ${esc(appointment.patientName.split(' ')[0])}
             </span>
           `).join('')}
           ${dayAppointments.length > 2
-            ? `<span class="calendar-more">+${dayAppointments.length - 2} ещё</span>`
+            ? `<span class="calendar-more">+${dayAppointments.length - 2} ${t('ещё')}</span>`
             : ''}
         </span>
       </button>
@@ -117,8 +118,8 @@ function renderDayPanel(appointments, ctx) {
   if (dayAppointments.length === 0) {
     list.innerHTML = emptyState({
       iconName: 'calendar',
-      title: 'На этот день записей нет',
-      text: 'Выберите другой день или создайте новую запись.',
+      title: t('На этот день записей нет'),
+      text: t('Выберите другой день или создайте новую запись.'),
     });
   } else {
     list.innerHTML = dayAppointments.map((appointment) => `
@@ -127,7 +128,7 @@ function renderDayPanel(appointments, ctx) {
         <div class="day-panel-body">
           <strong>${esc(appointment.patientName)}</strong>
           <small>${esc(appointment.doctorName)} · ${esc(appointment.serviceName)}</small>
-          <span>${statusBadge(appointment.status, appointment.statusLabel)}</span>
+          <span>${statusBadge(appointment.status)}</span>
         </div>
         <span class="appointment-price">${formatMoney(appointment.price)}</span>
       </div>
@@ -149,8 +150,8 @@ function renderDayPanel(appointments, ctx) {
 
   const bookingDate = state.selected < todayISO() ? todayISO() : state.selected;
   foot.innerHTML = canSchedule()
-    ? `<button type="button" class="btn btn-primary btn-block btn-sm" data-book-day>${icon('plus')}<span>Записаться на ${formatDateLong(bookingDate)}</span></button>`
-    : `<span class="muted" style="font-size:11px">Показаны приёмы вашего расписания</span>`;
+    ? `<button type="button" class="btn btn-primary btn-block btn-sm" data-book-day>${icon('plus')}<span>${t('Записаться на')} ${formatDateLong(bookingDate)}</span></button>`
+    : `<span class="muted" style="font-size:11px">${t('Показаны приёмы вашего расписания')}</span>`;
   foot.querySelector('[data-book-day]')?.addEventListener('click', () => {
     openBooking({
       date: bookingDate,
@@ -170,32 +171,33 @@ export async function render(root, ctx) {
       <section class="card calendar-card">
         <div class="calendar-toolbar">
           <div class="flex items-center gap-4">
-            <button type="button" class="icon-btn" data-prev title="Предыдущий месяц" aria-label="Предыдущий месяц">${icon('chevron-left')}</button>
-            <button type="button" class="icon-btn" data-next title="Следующий месяц" aria-label="Следующий месяц">${icon('chevron-right')}</button>
+            <button type="button" class="icon-btn" data-prev title="${t('Предыдущий месяц')}" aria-label="${t('Предыдущий месяц')}">${icon('chevron-left')}</button>
+            <button type="button" class="icon-btn" data-next title="${t('Следующий месяц')}" aria-label="${t('Следующий месяц')}">${icon('chevron-right')}</button>
           </div>
           <div class="calendar-month" data-month></div>
-          <button type="button" class="btn btn-secondary btn-sm" data-today>Сегодня</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-today>${t('Сегодня')}</button>
           <div class="calendar-nav">
-            <button type="button" class="btn btn-secondary btn-sm" data-list>${icon('appointments')}<span>Журнал</span></button>
-            ${canSchedule() ? `<button type="button" class="btn btn-primary btn-sm" data-new>${icon('plus')}<span>Запись</span></button>` : ''}
+            <button type="button" class="btn btn-secondary btn-sm" data-list>${icon('appointments')}<span>${t('Журнал')}</span></button>
+            ${canSchedule() ? `<button type="button" class="btn btn-primary btn-sm" data-new>${icon('plus')}<span>${t('Запись')}</span></button>` : ''}
           </div>
         </div>
         <div class="calendar-filters">
           ${hasRole('ADMIN', 'RECEPTIONIST') ? `<select class="select" data-doctor-filter></select>` : ''}
           <select class="select" data-status-filter>
-            <option value="">Все статусы</option>
-            <option value="SCHEDULED">Запланированные</option>
-            <option value="COMPLETED">Завершённые</option>
-            <option value="CANCELLED">Отменённые</option>
+            <option value="">${t('Все статусы')}</option>
+            <option value="SCHEDULED">${t('Запланированные')}</option>
+            <option value="COMPLETED">${t('Завершённые')}</option>
+            <option value="NO_SHOW">${t('Не явился')}</option>
+            <option value="CANCELLED">${t('Отменённые')}</option>
           </select>
           <span class="spacer"></span>
-          <span class="metric-inline">${icon('info')} <span>Нажмите на день, чтобы увидеть детали</span></span>
+          <span class="metric-inline">${icon('info')} <span>${t('Нажмите на день, чтобы увидеть детали')}</span></span>
         </div>
         <div class="calendar-weekdays">
-          ${WEEKDAYS_SHORT.map((day) => `<span>${day}</span>`).join('')}
+          ${weekdaysShort().map((day) => `<span>${day}</span>`).join('')}
         </div>
         <div class="calendar-grid" data-grid>
-          <div style="grid-column:1/-1">${emptyState({ iconName: 'calendar', title: 'Загружаем календарь…' })}</div>
+          <div style="grid-column:1/-1">${emptyState({ iconName: 'calendar', title: t('Загружаем календарь…') })}</div>
         </div>
       </section>
 
@@ -203,7 +205,7 @@ export async function render(root, ctx) {
         <div class="day-panel-head">
           <div>
             <h3 data-day-title>${formatDateLong(state.selected)}</h3>
-            <p data-day-subtitle>Загрузка…</p>
+            <p data-day-subtitle>${t('Загрузка…')}</p>
           </div>
           ${icon('calendar', 'icon-sm')}
         </div>
@@ -223,7 +225,7 @@ export async function render(root, ctx) {
     try {
       doctorsCache = await api.doctors.list();
       doctorFilter.innerHTML = `
-        <option value="">Все врачи</option>
+        <option value="">${t('Все врачи')}</option>
         ${doctorsCache.map((doctor) => `
           <option value="${doctor.id}" ${String(doctor.id) === String(state.doctorId) ? 'selected' : ''}>${esc(doctor.fullName)}</option>
         `).join('')}
@@ -243,7 +245,7 @@ export async function render(root, ctx) {
     const from = toISODate(cells[0]);
     const to = toISODate(cells[cells.length - 1]);
 
-    grid.innerHTML = `<div style="grid-column:1/-1">${emptyState({ iconName: 'calendar', title: 'Загружаем приёмы…', text: `${formatDateLong(from)} — ${formatDateLong(to)}` })}</div>`;
+    grid.innerHTML = `<div style="grid-column:1/-1">${emptyState({ iconName: 'calendar', title: t('Загружаем приёмы…'), text: `${formatDateLong(from)} — ${formatDateLong(to)}` })}</div>`;
     try {
       const result = await api.appointments.list({
         from,

@@ -19,24 +19,12 @@ Write-Host "Подробные [PASS]-строки идут ниже, итого
 
 $ErrorActionPreference = 'Continue'
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ToolsRoot = "$env:USERPROFILE\.medflow-tools"
-$configPath = Join-Path $ToolsRoot 'medflow-setup.json'
-
-$mySqlHome = "$env:USERPROFILE\mysql84"
-if (Test-Path $configPath) {
-    $config = Get-Content $configPath -Raw | ConvertFrom-Json
-    if ($config.MySqlHome) { $mySqlHome = $config.MySqlHome }
-    if ($config.JavaHome -and (Test-Path (Join-Path $config.JavaHome 'bin\java.exe'))) {
-        $env:JAVA_HOME = $config.JavaHome
-    }
-}
-$userJavaHome = [Environment]::GetEnvironmentVariable('JAVA_HOME', 'User')
-if ($userJavaHome -and (Test-Path (Join-Path $userJavaHome 'bin\java.exe'))) {
-    $env:JAVA_HOME = $userJavaHome
-}
-
-$env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
-            [Environment]::GetEnvironmentVariable('Path', 'User')
+. (Join-Path $ProjectRoot 'medflow-common.ps1')
+$ErrorActionPreference = 'Continue'
+$mySqlHome = Resolve-MfMySqlHome
+$javaHome = Resolve-MfJavaHome
+if ($javaHome) { $env:JAVA_HOME = $javaHome }
+$maven = Get-MfMaven
 Set-Location $ProjectRoot
 
 $results = New-Object System.Collections.ArrayList
@@ -95,7 +83,7 @@ function Run-CheckGroup {
 }
 
 Run-CheckGroup '1/3  Тесты Java (JUnit / MockMvc)' 'tests' {
-    & '.\mvnw.cmd' test
+    & $maven test
 }
 
 Run-CheckGroup '2/3  Проверка программы (API, роли, CSRF, запись)' 'checks' {

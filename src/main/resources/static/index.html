@@ -3,300 +3,188 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0b2530">
-  <meta name="description" content="MedFlow — управление пациентами, расписанием врачей и записями на приём">
-  <title>MedFlow — медицинская информационная система</title>
+  <meta name="theme-color" content="#219b80">
+  <meta name="description" content="MedFlow: медицинская информационная система клиники">
+  <title>MedFlow</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
-  <section id="login-screen" class="login-screen">
-    <div class="login-hero">
-      <div class="login-hero-inner">
-        <div class="brand brand-light">
-          <span class="brand-mark">
-            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-              <path d="M5 17h5l2.4-6 4.2 12 2.8-7H27" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-              <rect x="3" y="3" width="26" height="26" rx="8" stroke="currentColor" stroke-width="1.6" opacity=".45"/>
-            </svg>
-          </span>
-          <span class="brand-copy">
-            <strong>MedFlow</strong>
-            <small>Clinic Management System</small>
-          </span>
+  <header class="site-header">
+    <button id="menu-toggle" type="button" class="icon-btn menu-toggle hidden" aria-label="Открыть меню" data-i18n-label="Открыть меню">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+    <a class="brand" href="/" aria-label="MedFlow">
+      <span class="brand-mark">
+        <svg viewBox="0 0 34 34" aria-hidden="true">
+          <path fill="currentColor" d="M13 3h8a2 2 0 0 1 2 2v6h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-6v6a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-6H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h6V5a2 2 0 0 1 2-2Z"/>
+          <path fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M7 17.5h5l2.4-5 4 9.5 2.6-4.5h6"/>
+        </svg>
+      </span>
+      <span class="brand-name">MedFlow</span>
+    </a>
+    <span class="header-clinic" id="header-clinic"></span>
+    <span class="spacer"></span>
+    <a class="header-phone" id="header-phone" href="#"></a>
+    <div class="lang-switch" id="lang-switch" role="group" aria-label="Язык интерфейса" data-i18n-label="Язык интерфейса"></div>
+    <div class="user-menu hidden" id="user-menu">
+      <button id="user-button" type="button" class="user-button" aria-haspopup="true" aria-expanded="false">
+        <span id="user-avatar" class="avatar">?</span>
+        <span class="user-button-copy"><strong id="user-name"></strong><small id="user-role"></small></span>
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="user-dropdown" class="dropdown hidden">
+        <div class="dropdown-head">
+          <div><strong id="dropdown-name"></strong><small id="dropdown-role"></small></div>
         </div>
-
-        <div class="hero-content">
-          <span class="hero-badge">Медицинская информационная система</span>
-          <h1>Порядок в расписании.<br>Забота в каждом приёме.</h1>
-          <p class="hero-lead">
-            Единое пространство для администраторов, регистраторов и врачей:
-            пациенты, расписание, запись на приём и аналитика клиники.
-          </p>
-          <ul class="hero-features">
-            <li>
-              <span class="feature-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
-              </span>
-              <span><strong>Умное расписание</strong><small>Слоты врачей без накладок и двойных записей</small></span>
-            </li>
-            <li>
-              <span class="feature-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
-              </span>
-              <span><strong>Карточки пациентов</strong><small>История визитов, услуги и стоимость лечения</small></span>
-            </li>
-            <li>
-              <span class="feature-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
-              </span>
-              <span><strong>Отчёты и контроль</strong><small>Нагрузка врачей, выручка и статистика приёмов</small></span>
-            </li>
-          </ul>
-        </div>
-
-        <div class="hero-preview" aria-hidden="true">
-          <div class="preview-header">
-            <span>Сегодня в клинике</span>
-            <span class="live-dot">Онлайн</span>
-          </div>
-          <div class="preview-stats">
-            <div><strong>18</strong><span>приёмов</span></div>
-            <div><strong>7</strong><span>врачей</span></div>
-            <div><strong>94%</strong><span>загрузка</span></div>
-          </div>
-          <div class="preview-row">
-            <span class="preview-time">09:30</span>
-            <span class="preview-avatar">АС</span>
-            <span class="preview-name">Анна Соколова<small>Кардиология · каб. 201</small></span>
-            <span class="preview-status">Подтверждён</span>
-          </div>
-          <div class="preview-row">
-            <span class="preview-time">10:00</span>
-            <span class="preview-avatar preview-avatar-alt">МО</span>
-            <span class="preview-name">Михаил Орлов<small>Терапия · каб. 118</small></span>
-            <span class="preview-status preview-status-wait">Ожидается</span>
-          </div>
-        </div>
+        <button id="logout-button" type="button" class="dropdown-item dropdown-item-danger">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>
+          <span data-i18n="Выйти из системы">Выйти из системы</span>
+        </button>
       </div>
     </div>
+  </header>
 
-    <div class="login-panel">
-      <div class="login-card">
-        <div class="login-card-head">
-          <span class="login-kicker">Добро пожаловать</span>
-          <h2>MedFlow</h2>
-          <p>Войдите в систему или создайте личный кабинет пациента.</p>
+  <main id="login-screen" class="login-screen hidden">
+    <section class="login-intro">
+      <h1><b data-i18n="Приём, направления и документы" style="font-weight:inherit">Приём, направления и документы</b> <span data-i18n="в одном кабинете">в одном кабинете</span></h1>
+      <p data-i18n="Пациент видит свои визиты, заключения и счета. Врач ведёт приём и направляет к коллегам. Регистратура работает с той же картой.">Пациент видит свои визиты, заключения и счета. Врач ведёт приём и направляет к коллегам. Регистратура работает с той же картой.</p>
+      <ul class="login-facts">
+        <li><strong data-i18n="Вход по ИИН">Вход по ИИН</strong><span data-i18n="Если карта уже заведена в клинике, она найдётся и привяжется сама.">Если карта уже заведена в клинике, она найдётся и привяжется сама.</span></li>
+        <li><strong data-i18n="Справки в PDF">Справки в PDF</strong><span data-i18n="После завершённого приёма, на казахском, русском или английском.">После завершённого приёма, на казахском, русском или английском.</span></li>
+        <li><strong data-i18n="Оплата онлайн">Оплата онлайн</strong><span data-i18n="Квитанция сразу приходит на вашу почту.">Квитанция сразу приходит на вашу почту.</span></li>
+      </ul>
+      <p class="login-contacts" id="login-contacts"></p>
+    </section>
+
+    <section class="login-card">
+      <div class="auth-mode" role="tablist">
+        <button type="button" class="is-active" data-auth-mode="login" role="tab" aria-selected="true" data-i18n="Вход">Вход</button>
+        <button type="button" data-auth-mode="register" role="tab" aria-selected="false" data-i18n="Регистрация пациента">Регистрация пациента</button>
+      </div>
+
+      <form id="login-form" class="auth-form is-active" novalidate>
+        <div class="field">
+          <label for="login-username" data-i18n="ИИН или логин">ИИН или логин</label>
+          <input id="login-username" name="username" class="input" autocomplete="username" required>
         </div>
-
-        <div class="auth-mode" role="tablist" aria-label="Режим входа">
-          <button type="button" id="auth-login-tab" class="is-active" data-auth-mode="login" role="tab" aria-selected="true">Вход</button>
-          <button type="button" id="auth-register-tab" data-auth-mode="register" role="tab" aria-selected="false">Регистрация пациента</button>
+        <div class="field">
+          <label for="login-password" data-i18n="Пароль">Пароль</label>
+          <div class="input-wrap">
+            <input id="login-password" name="password" type="password" class="input" autocomplete="current-password" required>
+            <button type="button" id="toggle-password" class="input-action" aria-label="Показать пароль" data-i18n-label="Показать пароль">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
+        <div id="login-error" class="form-alert hidden" role="alert"></div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="login-submit"><span data-i18n="Войти">Войти</span></button>
 
-        <form id="login-form" class="auth-form is-active" novalidate>
-          <div class="field">
-            <label for="login-username">Логин</label>
-            <div class="input-wrap">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <input id="login-username" name="username" class="input" autocomplete="username" placeholder="Например, doctor.ivanov" required>
-            </div>
-          </div>
-          <div class="field">
-            <label for="login-password">Пароль</label>
-            <div class="input-wrap">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-              <input id="login-password" name="password" type="password" class="input" autocomplete="current-password" placeholder="Введите пароль" required>
-              <button type="button" id="toggle-password" class="input-action" aria-label="Показать пароль">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
-            </div>
-          </div>
-
-          <div id="login-error" class="form-alert hidden" role="alert"></div>
-
-          <button type="submit" class="btn btn-primary btn-block btn-lg" id="login-submit">
-            <span>Войти в систему</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </button>
-        </form>
-
-        <form id="register-form" class="auth-form register-form" novalidate>
-          <div class="form-grid">
-            <div class="field">
-              <label for="register-username">Логин *</label>
-              <input id="register-username" name="username" class="input" autocomplete="username" maxlength="60" placeholder="Например, anna.patient" required>
-            </div>
-            <div class="field">
-              <label for="register-password">Пароль *</label>
-              <input id="register-password" name="password" type="password" class="input" autocomplete="new-password" minlength="8" maxlength="100" placeholder="Не менее 8 символов" required>
-            </div>
-            <div class="field">
-              <label for="register-iin">ИИН *</label>
-              <input id="register-iin" name="iin" class="input" inputmode="numeric" maxlength="12" pattern="\d{12}" placeholder="12 цифр" required>
-            </div>
-            <div class="field">
-              <label for="register-phone">Телефон *</label>
-              <input id="register-phone" name="phone" class="input" type="tel" maxlength="30" placeholder="+7 (916) 100-10-01" required>
-            </div>
-            <div class="field">
-              <label for="register-firstName">Имя *</label>
-              <input id="register-firstName" name="firstName" class="input" maxlength="80" required>
-            </div>
-            <div class="field">
-              <label for="register-lastName">Фамилия *</label>
-              <input id="register-lastName" name="lastName" class="input" maxlength="80" required>
-            </div>
-            <div class="field">
-              <label for="register-birthDate">Дата рождения *</label>
-              <input id="register-birthDate" name="birthDate" type="date" class="input" required>
-            </div>
-            <div class="field">
-              <label for="register-gender">Пол *</label>
-              <select id="register-gender" name="gender" class="select" required>
-                <option value="FEMALE">Женский</option>
-                <option value="MALE">Мужской</option>
-              </select>
-            </div>
-            <div class="field span-2">
-              <label for="register-email">Email</label>
-              <input id="register-email" name="email" type="email" class="input" maxlength="160" placeholder="patient@example.com">
-            </div>
-            <div class="field span-2">
-              <label for="register-address">Адрес проживания *</label>
-              <input id="register-address" name="address" class="input" maxlength="300" placeholder="Город, улица, дом, квартира" required>
-            </div>
-          </div>
-
-          <div id="register-error" class="form-alert hidden" data-form-alert role="alert"></div>
-
-          <button type="submit" class="btn btn-primary btn-block btn-lg" id="register-submit">
-            <span>Создать личный кабинет</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </button>
-        </form>
-
-        <div class="demo-block">
-          <div class="demo-head">
-            <span>Демо-доступы</span>
-            <small>нажмите, чтобы подставить</small>
-          </div>
+        <details class="demo-block">
+          <summary data-i18n="Демо-доступы">Демо-доступы</summary>
           <div class="demo-grid">
-            <button type="button" class="demo-account" data-username="admin" data-password="Admin123!">
-              <span class="demo-role demo-role-admin">А</span>
-              <span><strong>Администратор</strong><small>admin / Admin123!</small></span>
-            </button>
-            <button type="button" class="demo-account" data-username="reception" data-password="Reception123!">
-              <span class="demo-role demo-role-reception">Р</span>
-              <span><strong>Регистратор</strong><small>reception / Reception123!</small></span>
-            </button>
-            <button type="button" class="demo-account" data-username="doctor.ivanov" data-password="Doctor123!">
-              <span class="demo-role demo-role-doctor">В</span>
-              <span><strong>Врач</strong><small>doctor.ivanov / Doctor123!</small></span>
-            </button>
-            <button type="button" class="demo-account" data-username="patient.demo" data-password="Patient123!">
-              <span class="demo-role demo-role-patient">П</span>
-              <span><strong>Пациент</strong><small>patient.demo / Patient123!</small></span>
-            </button>
+            <button type="button" class="demo-account" data-username="patient.demo" data-password="Patient123!"><strong data-i18n="Пациент">Пациент</strong><small>patient.demo</small></button>
+            <button type="button" class="demo-account" data-username="doctor.ivanov" data-password="Doctor123!"><strong data-i18n="Врач">Врач</strong><small>doctor.ivanov</small></button>
+            <button type="button" class="demo-account" data-username="reception" data-password="Reception123!"><strong data-i18n="Регистратор">Регистратор</strong><small>reception</small></button>
+            <button type="button" class="demo-account" data-username="admin" data-password="Admin123!"><strong data-i18n="Администратор">Администратор</strong><small>admin</small></button>
+          </div>
+        </details>
+      </form>
+
+      <form id="register-form" class="auth-form" novalidate>
+        <div class="field">
+          <label for="register-iin" data-i18n="ИИН *">ИИН *</label>
+          <input id="register-iin" name="iin" class="input" inputmode="numeric" maxlength="12" autocomplete="off" required>
+          <span class="hint" data-i18n="12 цифр. По нему мы проверим, есть ли ваша карта в клинике.">12 цифр. По нему мы проверим, есть ли ваша карта в клинике.</span>
+        </div>
+        <div id="register-iin-status" class="form-alert form-alert-info hidden" role="status"></div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="register-lastName" data-i18n="Фамилия *">Фамилия *</label>
+            <input id="register-lastName" name="lastName" class="input" maxlength="80" autocomplete="family-name" required>
+          </div>
+          <div class="field">
+            <label for="register-firstName" data-i18n="Имя *">Имя *</label>
+            <input id="register-firstName" name="firstName" class="input" maxlength="80" autocomplete="given-name" required>
+          </div>
+          <div class="field span-2">
+            <label for="register-middleName" data-i18n="Отчество">Отчество</label>
+            <input id="register-middleName" name="middleName" class="input" maxlength="80" autocomplete="additional-name">
+          </div>
+          <div class="field">
+            <label for="register-birthDate" data-i18n="Дата рождения *">Дата рождения *</label>
+            <input id="register-birthDate" name="birthDate" type="date" class="input" required>
+          </div>
+          <div class="field">
+            <label for="register-gender" data-i18n="Пол *">Пол *</label>
+            <select id="register-gender" name="gender" class="select" required>
+              <option value="" data-i18n="Выберите пол">Выберите пол</option>
+              <option value="FEMALE" data-i18n="Женский">Женский</option>
+              <option value="MALE" data-i18n="Мужской">Мужской</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="register-phone" data-i18n="Телефон *">Телефон *</label>
+            <input id="register-phone" name="phone" class="input" type="tel" maxlength="25" placeholder="+7 (7__) ___-__-__" autocomplete="tel" required>
+          </div>
+          <div class="field">
+            <label for="register-email">Email *</label>
+            <input id="register-email" name="email" type="email" class="input" maxlength="160" autocomplete="email" required>
+          </div>
+          <div class="field">
+            <label for="register-city" data-i18n="Город, населённый пункт *">Город, населённый пункт *</label>
+            <input id="register-city" name="city" class="input" maxlength="100" autocomplete="address-level2" required>
+          </div>
+          <div class="field">
+            <label for="register-street" data-i18n="Улица *">Улица *</label>
+            <input id="register-street" name="street" class="input" maxlength="120" autocomplete="address-line1" required>
+          </div>
+          <div class="field">
+            <label for="register-house" data-i18n="Дом *">Дом *</label>
+            <input id="register-house" name="house" class="input" maxlength="20" required>
+          </div>
+          <div class="field">
+            <label for="register-apartment" data-i18n="Квартира">Квартира</label>
+            <input id="register-apartment" name="apartment" class="input" maxlength="20">
+          </div>
+          <div class="field span-2">
+            <label for="register-password" data-i18n="Пароль *">Пароль *</label>
+            <input id="register-password" name="password" type="password" class="input" autocomplete="new-password" minlength="8" maxlength="100" required>
+            <span class="hint" data-i18n="Не менее 8 символов. Входить можно по ИИН.">Не менее 8 символов. Входить можно по ИИН.</span>
           </div>
         </div>
-
-        <p class="login-footnote">
-          Защищённое соединение · Spring Security · BCrypt
-        </p>
-      </div>
-    </div>
-  </section>
+        <div id="register-error" class="form-alert hidden" data-form-alert role="alert"></div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="register-submit"><span data-i18n="Создать личный кабинет">Создать личный кабинет</span></button>
+      </form>
+    </section>
+  </main>
 
   <div id="app" class="app hidden">
     <aside id="sidebar" class="sidebar">
-      <div class="sidebar-head">
-        <div class="brand brand-light">
-          <span class="brand-mark">
-            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-              <path d="M5 17h5l2.4-6 4.2 12 2.8-7H27" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-              <rect x="3" y="3" width="26" height="26" rx="8" stroke="currentColor" stroke-width="1.6" opacity=".45"/>
-            </svg>
-          </span>
-          <span class="brand-copy">
-            <strong>MedFlow</strong>
-            <small>Clinic Management</small>
-          </span>
-        </div>
-        <button id="sidebar-close" class="icon-btn sidebar-close" aria-label="Закрыть меню">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>
-        </button>
-      </div>
-
-      <div class="sidebar-label">Рабочее пространство</div>
-      <nav id="nav" class="nav" aria-label="Основная навигация"></nav>
-
+      <nav id="nav" class="nav" aria-label="Основная навигация" data-i18n-label="Основная навигация"></nav>
       <div class="sidebar-bottom">
-        <div class="sidebar-status">
-          <span class="health-dot" id="health-dot"></span>
-          <div><strong id="health-text">Проверка системы</strong><small>API и база данных</small></div>
-        </div>
-        <div class="sidebar-version">MedFlow v1.0 · 2026</div>
+        <div class="sidebar-status"><span class="health-dot" id="health-dot"></span><span id="health-text"></span></div>
       </div>
     </aside>
-
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
     <div class="main">
-      <header class="topbar">
-        <button id="menu-toggle" class="icon-btn menu-toggle" aria-label="Открыть меню">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-        </button>
-        <div class="topbar-title">
-          <div class="breadcrumbs" id="breadcrumbs">MedFlow · Рабочее пространство</div>
-          <h1 id="page-title">Дашборд</h1>
-          <p id="page-subtitle"></p>
-        </div>
-        <div class="topbar-actions">
-          <a href="/swagger-ui.html" target="_blank" rel="noopener" class="topbar-link" title="Документация REST API">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
-            <span>API</span>
-          </a>
-          <div class="user-menu">
-            <button id="user-button" class="user-button" aria-haspopup="true" aria-expanded="false">
-              <span id="user-avatar" class="avatar">?</span>
-              <span class="user-button-copy">
-                <strong id="user-name">Пользователь</strong>
-                <small id="user-role">Роль</small>
-              </span>
-              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-            <div id="user-dropdown" class="dropdown hidden">
-              <div class="dropdown-head">
-                <span id="dropdown-avatar" class="avatar avatar-lg">?</span>
-                <div><strong id="dropdown-name">Пользователь</strong><small id="dropdown-role">Роль</small></div>
-              </div>
-              <div class="dropdown-sep"></div>
-              <button id="logout-button" class="dropdown-item dropdown-item-danger">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>
-                Выйти из системы
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
+      <div class="page-title">
+        <h1 id="page-title"></h1>
+        <p id="page-subtitle"></p>
+      </div>
       <main id="view" class="view" aria-live="polite"></main>
-
       <footer class="app-footer">
-        <span>MedFlow · Hospital Appointment &amp; Medical Administration System</span>
-        <span id="footer-date"></span>
+        <span id="footer-clinic"></span>
+        <span><a href="/swagger-ui.html" target="_blank" rel="noopener">API</a> · <span id="footer-date"></span></span>
       </footer>
     </div>
   </div>
 
   <div id="modal-root"></div>
-  <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+  <div id="toast-root" class="toast-root" aria-live="polite"></div>
 
-  <noscript>
-    <div class="noscript">Для работы MedFlow необходим включённый JavaScript.</div>
-  </noscript>
-
+  <noscript><div class="noscript">Для работы MedFlow необходим включённый JavaScript.</div></noscript>
   <script type="module" src="/js/app.js"></script>
 </body>
 </html>

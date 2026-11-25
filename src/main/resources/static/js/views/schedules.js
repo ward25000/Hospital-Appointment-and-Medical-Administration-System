@@ -1,4 +1,5 @@
 import { api, getErrorMessage } from '../api.js';
+import { t, plural } from '../i18n.js';
 import {
   icon,
   esc,
@@ -36,11 +37,11 @@ function shiftCard(schedule, onEdit, onDelete) {
   return `
     <div class="shift-card">
       <strong>${formatTime(schedule.startTime)}–${formatTime(schedule.endTime)}</strong>
-      <small>${schedule.slotMinutes} мин · ${schedule.active ? 'активна' : 'отключена'}</small>
+      <small>${schedule.slotMinutes} ${t('мин')} · ${schedule.active ? t('активна') : t('отключена')}</small>
       ${isAdmin() ? `
         <div class="shift-card-actions">
-          <button type="button" class="icon-action" data-edit="${schedule.id}" title="Изменить смену" aria-label="Изменить смену">${icon('edit')}</button>
-          <button type="button" class="icon-action danger" data-delete="${schedule.id}" title="Удалить смену" aria-label="Удалить смену">${icon('trash')}</button>
+          <button type="button" class="icon-action" data-edit="${schedule.id}" title="${t('Изменить смену')}" aria-label="${t('Изменить смену')}">${icon('edit')}</button>
+          <button type="button" class="icon-action danger" data-delete="${schedule.id}" title="${t('Удалить смену')}" aria-label="${t('Удалить смену')}">${icon('trash')}</button>
         </div>
       ` : ''}
     </div>
@@ -63,13 +64,13 @@ function weekGrid(schedules, handers) {
           <article class="card week-day-card ${day === currentDayName() ? 'is-today' : ''}">
             <div class="week-day-head">
               <strong>${esc(dayOfWeekLabel(day))}</strong>
-              <span>${shifts.length ? `${shifts.length} смен${shifts.length > 1 ? 'ы' : 'а'}` : 'выходной'}</span>
+              <span>${shifts.length ? `${shifts.length} ${plural(shifts.length, ['смена', 'смены', 'смен'])}` : t('выходной')}</span>
             </div>
             ${shifts.length
               ? shifts.map((schedule) => shiftCard(schedule, handers.onEdit, handers.onDelete)).join('')
-              : `<div class="shift-empty">${icon('clock')}<span>Смены не заданы</span></div>`}
+              : `<div class="shift-empty">${icon('clock')}<span>${t('Смены не заданы')}</span></div>`}
             ${isAdmin()
-              ? `<button type="button" class="btn btn-ghost btn-sm shift-add" data-add="${day}">${icon('plus')}<span>Добавить</span></button>`
+              ? `<button type="button" class="btn btn-ghost btn-sm shift-add" data-add="${day}">${icon('plus')}<span>${t('Добавить')}</span></button>`
               : ''}
           </article>
         `;
@@ -91,23 +92,23 @@ export async function render(root, ctx) {
     <div class="stack">
       <div class="page-toolbar">
         ${doctorMode
-          ? `<div class="flex items-center gap-8"><span class="badge badge-soft">${icon('user')} ${esc(ctx.user.fullName)}</span><span class="muted" style="font-size:12px">Ваши недельные смены</span></div>`
+          ? `<div class="flex items-center gap-8"><span class="badge badge-soft">${icon('user')} ${esc(ctx.user.fullName)}</span><span class="muted" style="font-size:12px">${t('Ваши недельные смены')}</span></div>`
           : `<select class="select" id="schedule-doctor" style="min-width:260px"></select>`}
         <div class="spacer"></div>
-        <button type="button" class="btn btn-secondary btn-icon" id="schedule-refresh" title="Обновить">${icon('refresh')}</button>
+        <button type="button" class="btn btn-secondary btn-icon" id="schedule-refresh" title="${t('Обновить')}">${icon('refresh')}</button>
         ${isAdmin()
-          ? `<button type="button" class="btn btn-primary" id="schedule-new">${icon('plus')}<span>Добавить смену</span></button>`
+          ? `<button type="button" class="btn btn-primary" id="schedule-new">${icon('plus')}<span>${t('Добавить смену')}</span></button>`
           : ''}
       </div>
       <section class="card card-pad" id="schedule-summary">
         <div class="section-head" style="margin-bottom:0">
           <div>
-            <h3 data-schedule-title>Недельное расписание</h3>
-            <p data-schedule-subtitle>Загружаем смены врача…</p>
+            <h3 data-schedule-title>${t('Недельное расписание')}</h3>
+            <p data-schedule-subtitle>${t('Загружаем смены врача…')}</p>
           </div>
         </div>
       </section>
-      <div data-schedule-grid>${loadingState('Загружаем расписание…')}</div>
+      <div data-schedule-grid>${loadingState(t('Загружаем расписание…'))}</div>
     </div>
   `;
 
@@ -128,8 +129,8 @@ export async function render(root, ctx) {
     if (doctorsCache.length === 0) {
       grid.innerHTML = emptyState({
         iconName: 'doctors',
-        title: 'Врачей пока нет',
-        text: 'Сначала создайте профиль врача, затем настройте его смены.',
+        title: t('Врачей пока нет'),
+        text: t('Сначала создайте профиль врача, затем настройте его смены.'),
       });
       return;
     }
@@ -138,7 +139,7 @@ export async function render(root, ctx) {
     }
     doctorSelect.innerHTML = doctorsCache.map((doctor) => `
       <option value="${doctor.id}" ${String(doctor.id) === String(state.doctorId) ? 'selected' : ''}>
-        ${esc(doctor.fullName)} — ${esc(doctor.specializationName)}${doctor.active ? '' : ' (неактивен)'}
+        ${esc(doctor.fullName)} — ${esc(doctor.specializationName)}${doctor.active ? '' : ` ${t('(неактивен)')}`}
       </option>
     `).join('');
     doctorSelect.addEventListener('change', () => {
@@ -151,18 +152,18 @@ export async function render(root, ctx) {
 
   const load = async () => {
     if (!state.doctorId) {
-      grid.innerHTML = errorState('Для вашей учётной записи не найден профиль врача', { retry: false });
+      grid.innerHTML = errorState(t('Для вашей учётной записи не найден профиль врача'), { retry: false });
       return;
     }
-    grid.innerHTML = loadingState('Загружаем расписание…');
+    grid.innerHTML = loadingState(t('Загружаем расписание…'));
     try {
       currentSchedules = await api.schedules.byDoctor(state.doctorId);
       const doctor = doctorsCache.find((item) => String(item.id) === String(state.doctorId));
       const shifts = currentSchedules.filter((item) => item.active).length;
-      title.textContent = doctor ? doctor.fullName : (ctx.user.fullName || 'Расписание врача');
+      title.textContent = doctor ? doctor.fullName : (ctx.user.fullName || t('Расписание врача'));
       subtitle.textContent = currentSchedules.length
-        ? `${shifts} активных смен · ${currentSchedules.length} всего`
-        : 'Смены ещё не настроены';
+        ? t('{0} активных смен · {1} всего', [shifts, currentSchedules.length])
+        : t('Смены ещё не настроены');
       grid.innerHTML = weekGrid(currentSchedules, { onEdit: openEditForm, onDelete: removeSchedule });
       bindGridActions();
     } catch (error) {
@@ -207,27 +208,27 @@ export async function render(root, ctx) {
 
   const removeSchedule = async (schedule, onDone) => {
     const confirmed = await confirmDialog({
-      title: 'Удалить смену?',
-      message: `${dayOfWeekLabel(schedule.dayOfWeek)}, ${formatTime(schedule.startTime)}–${formatTime(schedule.endTime)}. Записи на приём при этом не удаляются.`,
-      confirmText: 'Удалить смену',
-      cancelText: 'Отмена',
+      title: t('Удалить смену?'),
+      message: t('{0}, {1}–{2}. Записи на приём при этом не удаляются.', [dayOfWeekLabel(schedule.dayOfWeek), formatTime(schedule.startTime), formatTime(schedule.endTime)]),
+      confirmText: t('Удалить смену'),
+      cancelText: t('Отмена'),
     });
     if (!confirmed) {
       return;
     }
     try {
       await api.schedules.remove(schedule.id);
-      toast('Смена удалена из расписания', 'success');
+      toast(t('Смена удалена из расписания'), 'success');
       onDone?.();
     } catch (error) {
-      toast(getErrorMessage(error), 'error', 'Не удалось удалить смену');
+      toast(getErrorMessage(error), 'error', t('Не удалось удалить смену'));
     }
   };
 
   root.querySelector('#schedule-refresh').addEventListener('click', load);
   root.querySelector('#schedule-new')?.addEventListener('click', () => {
     if (!state.doctorId) {
-      toast('Сначала выберите врача', 'error');
+      toast(t('Сначала выберите врача'), 'error');
       return;
     }
     openScheduleForm({
@@ -245,14 +246,14 @@ function openScheduleForm({ doctorId, dayOfWeek = 'MONDAY', schedule = null, onD
   const formId = `schedule-form-${Date.now()}`;
   const doctor = doctorsCache.find((item) => Number(item.id) === Number(doctorId));
   const modal = openModal({
-    title: isEdit ? 'Изменить смену' : 'Новая смена',
-    subtitle: doctor ? `${doctor.fullName} · ${doctor.specializationName}` : 'Настройка недельного расписания',
+    title: isEdit ? t('Изменить смену') : t('Новая смена'),
+    subtitle: doctor ? `${doctor.fullName} · ${doctor.specializationName}` : t('Настройка недельного расписания'),
     size: 'sm',
     body: `
       <form id="${formId}" class="modal-enter" novalidate>
         <div class="form-alert hidden" data-form-alert role="alert"></div>
         <div class="field">
-          <label for="${formId}-day">День недели *</label>
+          <label for="${formId}-day">${t('День недели *')}</label>
           <select class="select" id="${formId}-day" name="dayOfWeek" required>
             ${WEEKDAYS_API.map((day) => `
               <option value="${day}" ${(schedule?.dayOfWeek || dayOfWeek) === day ? 'selected' : ''}>${esc(dayOfWeekLabel(day))}</option>
@@ -261,37 +262,37 @@ function openScheduleForm({ doctorId, dayOfWeek = 'MONDAY', schedule = null, onD
         </div>
         <div class="form-grid">
           <div class="field">
-            <label for="${formId}-start">Начало смены *</label>
+            <label for="${formId}-start">${t('Начало смены *')}</label>
             <input class="input" type="time" id="${formId}-start" name="startTime" required value="${esc(formatTime(schedule?.startTime || '09:00'))}">
           </div>
           <div class="field">
-            <label for="${formId}-end">Конец смены *</label>
+            <label for="${formId}-end">${t('Конец смены *')}</label>
             <input class="input" type="time" id="${formId}-end" name="endTime" required value="${esc(formatTime(schedule?.endTime || '17:00'))}">
           </div>
         </div>
         <div class="field">
-          <label for="${formId}-slot">Интервал приёма *</label>
+          <label for="${formId}-slot">${t('Интервал приёма *')}</label>
           <select class="select" id="${formId}-slot" name="slotMinutes" required>
             ${[15, 20, 30, 45, 60].map((minutes) => `
-              <option value="${minutes}" ${Number(schedule?.slotMinutes || 30) === minutes ? 'selected' : ''}>${minutes} минут</option>
+              <option value="${minutes}" ${Number(schedule?.slotMinutes || 30) === minutes ? 'selected' : ''}>${minutes} ${t('минут')}</option>
             `).join('')}
           </select>
         </div>
         <div class="check-row">
           <input class="checkbox" type="checkbox" id="${formId}-active" name="active" ${schedule?.active === false ? '' : 'checked'}>
-          <label class="check-label" for="${formId}-active">Смена активна</label>
+          <label class="check-label" for="${formId}-active">${t('Смена активна')}</label>
         </div>
         <div class="info-note">
           ${icon('info')}
-          <span>Запись возможна только внутри активной смены и с шагом, кратным интервалу приёма.</span>
+          <span>${t('Запись возможна только внутри активной смены и с шагом, кратным интервалу приёма.')}</span>
         </div>
       </form>
     `,
     footer: `
       <span class="spacer"></span>
-      <button type="button" class="btn btn-secondary" data-cancel>Отмена</button>
+      <button type="button" class="btn btn-secondary" data-cancel>${t('Отмена')}</button>
       <button type="submit" form="${formId}" class="btn btn-primary" data-submit>
-        ${icon('check')}<span>${isEdit ? 'Сохранить' : 'Добавить смену'}</span>
+        ${icon('check')}<span>${isEdit ? t('Сохранить') : t('Добавить смену')}</span>
       </button>
     `,
   });
@@ -311,16 +312,16 @@ function openScheduleForm({ doctorId, dayOfWeek = 'MONDAY', schedule = null, onD
       active: form.elements.namedItem('active').checked,
     };
     if (!values.startTime || !values.endTime || !values.dayOfWeek) {
-      showFormAlert(form, 'Заполните день и время смены');
+      showFormAlert(form, t('Заполните день и время смены'));
       return;
     }
     if (values.startTime >= values.endTime) {
-      showFormAlert(form, 'Время окончания должно быть позже времени начала');
+      showFormAlert(form, t('Время окончания должно быть позже времени начала'));
       form.elements.namedItem('endTime').classList.add('is-invalid');
       return;
     }
 
-    setButtonLoading(submitButton, true, isEdit ? 'Сохраняем…' : 'Добавляем…');
+    setButtonLoading(submitButton, true, isEdit ? t('Сохраняем…') : t('Добавляем…'));
     try {
       if (isEdit) {
         await api.schedules.update(schedule.id, values);
@@ -328,7 +329,7 @@ function openScheduleForm({ doctorId, dayOfWeek = 'MONDAY', schedule = null, onD
         await api.schedules.create(doctorId, values);
       }
       modal.close();
-      toast(isEdit ? 'Смена обновлена' : 'Смена добавлена в расписание', 'success');
+      toast(isEdit ? t('Смена обновлена') : t('Смена добавлена в расписание'), 'success');
       onDone?.();
     } catch (error) {
       applyFieldErrors(form, error.fieldErrors);

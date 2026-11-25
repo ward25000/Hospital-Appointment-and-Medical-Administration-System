@@ -1,4 +1,5 @@
 import { api, getErrorMessage } from '../api.js';
+import { t } from '../i18n.js';
 import {
   icon,
   esc,
@@ -24,8 +25,8 @@ const state = {
 
 function statusBadge(active) {
   return active
-    ? '<span class="badge badge-active">Активна</span>'
-    : '<span class="badge badge-inactive">Отключена</span>';
+    ? `<span class="badge badge-active">${t('Активна')}</span>`
+    : `<span class="badge badge-inactive">${t('Отключена')}</span>`;
 }
 
 function specializationRow(item) {
@@ -33,15 +34,15 @@ function specializationRow(item) {
     <tr>
       <td>
         <span class="cell-main">${esc(item.name)}</span>
-        <span class="cell-sub">${esc(item.description || 'Описание не заполнено')}</span>
+        <span class="cell-sub">${esc(item.description || t('Описание не заполнено'))}</span>
       </td>
       <td class="num">${item.doctorsCount} ${pluralRu(item.doctorsCount, ['врач', 'врача', 'врачей'])}</td>
       <td>${statusBadge(item.active)}</td>
       <td>
         <div class="actions">
           ${isAdmin() ? `
-            <button type="button" class="icon-action" data-edit-specialization="${item.id}" title="Редактировать" aria-label="Редактировать специализацию">${icon('edit')}</button>
-            <button type="button" class="icon-action danger" data-delete-specialization="${item.id}" title="Удалить" aria-label="Удалить специализацию">${icon('trash')}</button>
+            <button type="button" class="icon-action" data-edit-specialization="${item.id}" title="${t('Редактировать')}" aria-label="${t('Редактировать специализацию')}">${icon('edit')}</button>
+            <button type="button" class="icon-action danger" data-delete-specialization="${item.id}" title="${t('Удалить')}" aria-label="${t('Удалить специализацию')}">${icon('trash')}</button>
           ` : ''}
         </div>
       </td>
@@ -54,16 +55,17 @@ function serviceRow(item) {
     <tr>
       <td>
         <span class="cell-main">${esc(item.name)}</span>
-        <span class="cell-sub">${esc(item.description || 'Описание не заполнено')}</span>
+        <span class="cell-sub">${esc(item.description || t('Описание не заполнено'))}</span>
+        ${item.diagnostic ? `<span class="badge badge-soft mt-8">${t('Диагностика')}: ${esc(item.specializationName || '')}, ${t('каб. {0}', [esc(item.office || '—')])}</span>` : ''}
       </td>
-      <td class="nowrap">${item.durationMinutes} мин</td>
+      <td class="nowrap">${item.durationMinutes} ${t('мин')}</td>
       <td class="num revenue-cell">${formatMoney(item.price)}</td>
       <td>${statusBadge(item.active)}</td>
       <td>
         <div class="actions">
           ${isAdmin() ? `
-            <button type="button" class="icon-action" data-edit-service="${item.id}" title="Редактировать" aria-label="Редактировать услугу">${icon('edit')}</button>
-            <button type="button" class="icon-action danger" data-delete-service="${item.id}" title="Удалить" aria-label="Удалить услугу">${icon('trash')}</button>
+            <button type="button" class="icon-action" data-edit-service="${item.id}" title="${t('Редактировать')}" aria-label="${t('Редактировать услугу')}">${icon('edit')}</button>
+            <button type="button" class="icon-action danger" data-delete-service="${item.id}" title="${t('Удалить')}" aria-label="${t('Удалить услугу')}">${icon('trash')}</button>
           ` : ''}
         </div>
       </td>
@@ -76,17 +78,17 @@ export async function render(root, ctx) {
     <div class="stack">
       <div class="flex items-center justify-between flex-wrap gap-12">
         ${segmentedControl([
-          { value: 'specializations', label: 'Специализации', count: undefined },
-          { value: 'services', label: 'Медицинские услуги', count: undefined },
+          { value: 'specializations', label: t('Специализации'), count: undefined },
+          { value: 'services', label: t('Медицинские услуги'), count: undefined },
         ], state.tab)}
         <div class="flex items-center gap-8">
-          <button type="button" class="btn btn-secondary btn-icon" id="catalog-refresh" title="Обновить">${icon('refresh')}</button>
+          <button type="button" class="btn btn-secondary btn-icon" id="catalog-refresh" title="${t('Обновить')}">${icon('refresh')}</button>
           ${isAdmin()
-            ? `<button type="button" class="btn btn-primary" id="catalog-add">${icon('plus')}<span data-add-label>Добавить</span></button>`
+            ? `<button type="button" class="btn btn-primary" id="catalog-add">${icon('plus')}<span data-add-label>${t('Добавить')}</span></button>`
             : ''}
         </div>
       </div>
-      <div data-catalog>${loadingState('Загружаем справочники…')}</div>
+      <div data-catalog>${loadingState(t('Загружаем справочники…'))}</div>
     </div>
   `;
 
@@ -98,7 +100,7 @@ export async function render(root, ctx) {
 
   const updateLabels = () => {
     if (addLabel) {
-      addLabel.textContent = state.tab === 'specializations' ? 'Добавить специализацию' : 'Добавить услугу';
+      addLabel.textContent = state.tab === 'specializations' ? t('Добавить специализацию') : t('Добавить услугу');
     }
     root.querySelectorAll('[data-tab]').forEach((button) => {
       button.classList.toggle('is-active', button.dataset.tab === state.tab);
@@ -112,20 +114,20 @@ export async function render(root, ctx) {
         <section class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">Специализации клиники</div>
-              <div class="card-subtitle">${specializations.length} ${pluralRu(specializations.length, ['направление', 'направления', 'направлений'])} в справочнике</div>
+              <div class="card-title">${t('Специализации клиники')}</div>
+              <div class="card-subtitle">${specializations.length} ${pluralRu(specializations.length, ['направление', 'направления', 'направлений'])} ${t('в справочнике')}</div>
             </div>
           </div>
           ${specializations.length
             ? `<div class="table-wrap"><table class="table">
-                <thead><tr><th>Название</th><th class="num">Врачи</th><th>Статус</th><th><span class="sr-only">Действия</span></th></tr></thead>
+                <thead><tr><th>${t('Название')}</th><th class="num">${t('Врачи')}</th><th>${t('Статус')}</th><th><span class="sr-only">${t('Действия')}</span></th></tr></thead>
                 <tbody>${specializations.map(specializationRow).join('')}</tbody>
               </table></div>`
             : emptyState({
               iconName: 'catalog',
-              title: 'Справочник пуст',
-              text: 'Добавьте первое направление, чтобы назначать его врачам.',
-              action: isAdmin() ? `<button type="button" class="btn btn-primary btn-sm" data-add>${icon('plus')}<span>Добавить специализацию</span></button>` : '',
+              title: t('Справочник пуст'),
+              text: t('Добавьте первое направление, чтобы назначать его врачам.'),
+              action: isAdmin() ? `<button type="button" class="btn btn-primary btn-sm" data-add>${icon('plus')}<span>${t('Добавить специализацию')}</span></button>` : '',
             })}
         </section>
       `;
@@ -134,20 +136,20 @@ export async function render(root, ctx) {
         <section class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">Медицинские услуги</div>
-              <div class="card-subtitle">${services.length} ${pluralRu(services.length, ['услуга', 'услуги', 'услуг'])} в прайсе клиники</div>
+              <div class="card-title">${t('Медицинские услуги')}</div>
+              <div class="card-subtitle">${services.length} ${pluralRu(services.length, ['услуга', 'услуги', 'услуг'])} ${t('в прайсе клиники')}</div>
             </div>
           </div>
           ${services.length
             ? `<div class="table-wrap"><table class="table">
-                <thead><tr><th>Услуга</th><th>Длительность</th><th class="num">Стоимость</th><th>Статус</th><th><span class="sr-only">Действия</span></th></tr></thead>
+                <thead><tr><th>${t('Услуга')}</th><th>${t('Длительность')}</th><th class="num">${t('Стоимость')}</th><th>${t('Статус')}</th><th><span class="sr-only">${t('Действия')}</span></th></tr></thead>
                 <tbody>${services.map(serviceRow).join('')}</tbody>
               </table></div>`
             : emptyState({
               iconName: 'catalog',
-              title: 'Прайс пуст',
-              text: 'Добавьте первую медицинскую услугу, чтобы её можно было выбрать при записи.',
-              action: isAdmin() ? `<button type="button" class="btn btn-primary btn-sm" data-add>${icon('plus')}<span>Добавить услугу</span></button>` : '',
+              title: t('Прайс пуст'),
+              text: t('Добавьте первую медицинскую услугу, чтобы её можно было выбрать при записи.'),
+              action: isAdmin() ? `<button type="button" class="btn btn-primary btn-sm" data-add>${icon('plus')}<span>${t('Добавить услугу')}</span></button>` : '',
             })}
         </section>
       `;
@@ -156,7 +158,7 @@ export async function render(root, ctx) {
   };
 
   const load = async () => {
-    catalogContainer.innerHTML = loadingState('Загружаем справочники…');
+    catalogContainer.innerHTML = loadingState(t('Загружаем справочники…'));
     try {
       [specializations, services] = await Promise.all([
         api.specializations.list(),
@@ -175,7 +177,7 @@ export async function render(root, ctx) {
     if (state.tab === 'specializations') {
       openSpecializationForm({ onDone: load });
     } else {
-      openServiceForm({ onDone: load });
+      openServiceForm({ departments: specializations, onDone: load });
     }
   };
 
@@ -195,7 +197,7 @@ export async function render(root, ctx) {
     catalogContainer.querySelectorAll('[data-edit-service]').forEach((button) => {
       button.addEventListener('click', () => {
         const item = services.find((entry) => Number(entry.id) === Number(button.dataset.editService));
-        if (item) openServiceForm({ item, onDone: load });
+        if (item) openServiceForm({ item, departments: specializations, onDone: load });
       });
     });
     catalogContainer.querySelectorAll('[data-delete-service]').forEach((button) => {
@@ -226,12 +228,12 @@ export async function render(root, ctx) {
 async function removeItem(type, item, onDone) {
   const isSpecialization = type === 'specialization';
   const confirmed = await confirmDialog({
-    title: isSpecialization ? 'Удалить специализацию?' : 'Удалить услугу?',
+    title: isSpecialization ? t('Удалить специализацию?') : t('Удалить услугу?'),
     message: isSpecialization
-      ? `«${item.name}» будет удалена из справочника. Удаление невозможно, если к направлению привязаны врачи.`
-      : `«${item.name}» будет удалена из прайса. Удаление невозможно, если услуга уже используется в приёмах.`,
-    confirmText: 'Удалить',
-    cancelText: 'Отмена',
+      ? t('«{0}» будет удалена из справочника. Удаление невозможно, если к направлению привязаны врачи.', [item.name])
+      : t('«{0}» будет удалена из прайса. Удаление невозможно, если услуга уже используется в приёмах.', [item.name]),
+    confirmText: t('Удалить'),
+    cancelText: t('Отмена'),
   });
   if (!confirmed) {
     return;
@@ -242,42 +244,51 @@ async function removeItem(type, item, onDone) {
     } else {
       await api.services.remove(item.id);
     }
-    toast(isSpecialization ? 'Специализация удалена' : 'Услуга удалена', 'success');
+    toast(isSpecialization ? t('Специализация удалена') : t('Услуга удалена'), 'success');
     onDone?.();
   } catch (error) {
-    toast(getErrorMessage(error), 'error', 'Не удалось удалить запись');
+    toast(getErrorMessage(error), 'error', t('Не удалось удалить запись'));
   }
+}
+
+function translatedFields(formId, item) {
+  const langs = [['', 'RU', ' *'], ['Kk', 'KZ', ''], ['En', 'EN', '']];
+  const value = (name, suffix) => esc(item?.[name + (suffix || 'Ru')] || '');
+  return langs.map(([suffix, label, mark]) => `
+    <div class="field"><label for="${formId}-name${suffix}">${t('Название')} (${label})${mark}</label>
+      <input class="input" id="${formId}-name${suffix}" name="name${suffix}" maxlength="120" value="${value('name', suffix)}"></div>`).join('')
+    + langs.map(([suffix, label]) => `
+    <div class="field"><label for="${formId}-description${suffix}">${t('Описание')} (${label})</label>
+      <textarea class="textarea" style="min-height:58px" id="${formId}-description${suffix}" name="description${suffix}" maxlength="500">${value('description', suffix)}</textarea></div>`).join('');
+}
+
+function readTranslated(form) {
+  return Object.fromEntries(['name', 'nameKk', 'nameEn', 'description', 'descriptionKk', 'descriptionEn']
+    .map((name) => [name, form.elements.namedItem(name).value.trim() || null]));
 }
 
 function openSpecializationForm({ item = null, onDone = null } = {}) {
   const isEdit = Boolean(item);
   const formId = `specialization-form-${Date.now()}`;
   const modal = openModal({
-    title: isEdit ? 'Редактировать специализацию' : 'Новая специализация',
-    subtitle: 'Направление, к которому относятся врачи клиники',
-    size: 'sm',
+    title: isEdit ? t('Редактировать специализацию') : t('Новая специализация'),
+    subtitle: t('Направление, к которому относятся врачи клиники'),
+    size: 'lg',
     body: `
       <form id="${formId}" class="modal-enter" novalidate>
         <div class="form-alert hidden" data-form-alert role="alert"></div>
-        <div class="field">
-          <label for="${formId}-name">Название *</label>
-          <input class="input" id="${formId}-name" name="name" maxlength="120" required value="${esc(item?.name || '')}" placeholder="Например, Кардиология">
-        </div>
-        <div class="field">
-          <label for="${formId}-description">Описание</label>
-          <textarea class="textarea" id="${formId}-description" name="description" maxlength="500" placeholder="Кратко о направлении">${esc(item?.description || '')}</textarea>
-        </div>
+        ${translatedFields(formId, item)}
         <div class="check-row">
           <input class="checkbox" type="checkbox" id="${formId}-active" name="active" ${item?.active === false ? '' : 'checked'}>
-          <label class="check-label" for="${formId}-active">Специализация доступна для выбора</label>
+          <label class="check-label" for="${formId}-active">${t('Специализация доступна для выбора')}</label>
         </div>
       </form>
     `,
     footer: `
       <span class="spacer"></span>
-      <button type="button" class="btn btn-secondary" data-cancel>Отмена</button>
+      <button type="button" class="btn btn-secondary" data-cancel>${t('Отмена')}</button>
       <button type="submit" form="${formId}" class="btn btn-primary" data-submit>
-        ${icon('check')}<span>${isEdit ? 'Сохранить' : 'Добавить'}</span>
+        ${icon('check')}<span>${isEdit ? t('Сохранить') : t('Добавить')}</span>
       </button>
     `,
   });
@@ -288,54 +299,59 @@ function openSpecializationForm({ item = null, onDone = null } = {}) {
     } else {
       await api.specializations.create(values);
     }
-    toast(isEdit ? 'Специализация обновлена' : 'Специализация добавлена', 'success');
+    toast(isEdit ? t('Специализация обновлена') : t('Специализация добавлена'), 'success');
     onDone?.();
   }, (form) => ({
-    name: form.elements.namedItem('name').value.trim(),
-    description: form.elements.namedItem('description').value.trim() || null,
+    ...readTranslated(form),
     active: form.elements.namedItem('active').checked,
   }));
 }
 
-function openServiceForm({ item = null, onDone = null } = {}) {
+function openServiceForm({ item = null, departments = [], onDone = null } = {}) {
   const isEdit = Boolean(item);
   const formId = `service-form-${Date.now()}`;
   const modal = openModal({
-    title: isEdit ? 'Редактировать услугу' : 'Новая медицинская услуга',
-    subtitle: 'Стоимость и длительность влияют на расчёт слотов и выручки',
-    size: 'sm',
+    title: isEdit ? t('Редактировать услугу') : t('Новая медицинская услуга'),
+    subtitle: t('Стоимость и длительность влияют на расчёт слотов и выручки'),
+    size: 'lg',
     body: `
       <form id="${formId}" class="modal-enter" novalidate>
         <div class="form-alert hidden" data-form-alert role="alert"></div>
-        <div class="field">
-          <label for="${formId}-name">Название *</label>
-          <input class="input" id="${formId}-name" name="name" maxlength="150" required value="${esc(item?.name || '')}" placeholder="Например, Первичная консультация">
-        </div>
-        <div class="field">
-          <label for="${formId}-description">Описание</label>
-          <textarea class="textarea" id="${formId}-description" name="description" maxlength="500">${esc(item?.description || '')}</textarea>
-        </div>
+        ${translatedFields(formId, item)}
         <div class="form-grid">
           <div class="field">
-            <label for="${formId}-price">Стоимость, ₽ *</label>
+            <label for="${formId}-price">${t('Стоимость, ₸ *')}</label>
             <input class="input" type="number" id="${formId}-price" name="price" min="0" step="0.01" required value="${item ? Number(item.price) : ''}" placeholder="2500">
           </div>
           <div class="field">
-            <label for="${formId}-duration">Длительность, мин *</label>
+            <label for="${formId}-duration">${t('Длительность, мин *')}</label>
             <input class="input" type="number" id="${formId}-duration" name="durationMinutes" min="5" max="240" step="5" required value="${item?.durationMinutes || 30}">
           </div>
         </div>
+        <div class="form-grid">
+          <div class="field"><label for="${formId}-specializationId">${t('Отделение')}</label>
+            <select class="select" id="${formId}-specializationId" name="specializationId">
+              <option value="">${t('Не указано')}</option>
+              ${departments.map((entry) => `<option value="${entry.id}" ${entry.id === item?.specializationId ? 'selected' : ''}>${esc(entry.name)}</option>`).join('')}
+            </select></div>
+          <div class="field"><label for="${formId}-office">${t('Кабинет')}</label>
+            <input class="input" id="${formId}-office" name="office" maxlength="30" value="${esc(item?.office || '')}"></div>
+        </div>
+        <div class="check-row">
+          <input class="checkbox" type="checkbox" id="${formId}-diagnostic" name="diagnostic" ${item?.diagnostic ? 'checked' : ''}>
+          <label class="check-label" for="${formId}-diagnostic">${t('Диагностика или анализ: врач может выписать направление')}</label>
+        </div>
         <div class="check-row">
           <input class="checkbox" type="checkbox" id="${formId}-active" name="active" ${item?.active === false ? '' : 'checked'}>
-          <label class="check-label" for="${formId}-active">Услуга доступна для записи</label>
+          <label class="check-label" for="${formId}-active">${t('Услуга доступна для записи')}</label>
         </div>
       </form>
     `,
     footer: `
       <span class="spacer"></span>
-      <button type="button" class="btn btn-secondary" data-cancel>Отмена</button>
+      <button type="button" class="btn btn-secondary" data-cancel>${t('Отмена')}</button>
       <button type="submit" form="${formId}" class="btn btn-primary" data-submit>
-        ${icon('check')}<span>${isEdit ? 'Сохранить' : 'Добавить'}</span>
+        ${icon('check')}<span>${isEdit ? t('Сохранить') : t('Добавить')}</span>
       </button>
     `,
   });
@@ -346,13 +362,15 @@ function openServiceForm({ item = null, onDone = null } = {}) {
     } else {
       await api.services.create(values);
     }
-    toast(isEdit ? 'Услуга обновлена' : 'Услуга добавлена в прайс', 'success');
+    toast(isEdit ? t('Услуга обновлена') : t('Услуга добавлена в прайс'), 'success');
     onDone?.();
   }, (form) => ({
-    name: form.elements.namedItem('name').value.trim(),
-    description: form.elements.namedItem('description').value.trim() || null,
+    ...readTranslated(form),
     price: Number(form.elements.namedItem('price').value),
     durationMinutes: Number(form.elements.namedItem('durationMinutes').value),
+    specializationId: Number(form.elements.namedItem('specializationId').value) || null,
+    office: form.elements.namedItem('office').value.trim() || null,
+    diagnostic: form.elements.namedItem('diagnostic').checked,
     active: form.elements.namedItem('active').checked,
   }));
 }
@@ -367,21 +385,21 @@ function bindCatalogForm(modal, formId, isEdit, save, readValues) {
     clearFieldErrors(form);
     const values = readValues(form);
     if (!values.name) {
-      showFormAlert(form, 'Укажите название');
+      showFormAlert(form, t('Укажите название'));
       form.elements.namedItem('name').classList.add('is-invalid');
       return;
     }
     if (values.price !== undefined && (!Number.isFinite(values.price) || values.price < 0)) {
-      showFormAlert(form, 'Укажите корректную стоимость услуги');
+      showFormAlert(form, t('Укажите корректную стоимость услуги'));
       return;
     }
     if (values.durationMinutes !== undefined
         && (!Number.isFinite(values.durationMinutes) || values.durationMinutes < 5 || values.durationMinutes > 240)) {
-      showFormAlert(form, 'Длительность должна быть от 5 до 240 минут');
+      showFormAlert(form, t('Длительность должна быть от 5 до 240 минут'));
       return;
     }
 
-    setButtonLoading(submitButton, true, isEdit ? 'Сохраняем…' : 'Добавляем…');
+    setButtonLoading(submitButton, true, isEdit ? t('Сохраняем…') : t('Добавляем…'));
     try {
       await save(values);
       modal.close();

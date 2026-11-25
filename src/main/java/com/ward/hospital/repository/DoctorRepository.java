@@ -20,6 +20,7 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
             where (:specializationId is null or d.specialization.id = :specializationId)
               and (:query is null
                    or lower(concat(d.firstName, ' ', d.lastName)) like lower(concat('%', :query, '%'))
+                   or lower(concat(d.lastName, ' ', d.firstName)) like lower(concat('%', :query, '%'))
                    or lower(d.specialization.name) like lower(concat('%', :query, '%')))
             order by d.lastName, d.firstName
             """)

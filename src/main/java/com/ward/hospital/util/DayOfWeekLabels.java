@@ -1,5 +1,7 @@
 package com.ward.hospital.util;
 
+import com.ward.hospital.i18n.I18n;
+
 import java.time.DayOfWeek;
 
 public final class DayOfWeekLabels {
@@ -8,7 +10,7 @@ public final class DayOfWeekLabels {
     }
 
     public static String of(DayOfWeek dayOfWeek) {
-        return switch (dayOfWeek) {
+        return I18n.t(switch (dayOfWeek) {
             case MONDAY -> "Понедельник";
             case TUESDAY -> "Вторник";
             case WEDNESDAY -> "Среда";
@@ -16,6 +18,6 @@ public final class DayOfWeekLabels {
             case FRIDAY -> "Пятница";
             case SATURDAY -> "Суббота";
             case SUNDAY -> "Воскресенье";
-        };
+        });
     }
 }

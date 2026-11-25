@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
     MedFlow end-to-end smoke check.
 
@@ -251,7 +251,7 @@ if (-not $slot) {
     Write-Check 'POST without CSRF token is rejected' ($status -eq 403) "HTTP $status (expected 403)"
 
     $status = Get-HttpStatus "$BaseUrl/api/appointments/$($created.id)/complete" 'POST' `
-        $doctor.Session $doctor.Headers
+        $doctor.Session $doctor.Headers '{"diagnosis":"check","conclusion":"check"}'
     Write-Check 'Completing a future appointment is rejected' ($status -eq 422) `
         "HTTP $status (expected 422)"
 

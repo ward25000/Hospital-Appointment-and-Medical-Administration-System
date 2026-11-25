@@ -12,6 +12,7 @@ import com.ward.hospital.domain.Specialization;
 import com.ward.hospital.domain.User;
 import com.ward.hospital.dto.appointment.AppointmentCreateRequest;
 import com.ward.hospital.dto.appointment.AppointmentResponse;
+import com.ward.hospital.dto.appointment.CompleteRequest;
 import com.ward.hospital.dto.appointment.AvailabilityResponse;
 import com.ward.hospital.dto.appointment.CancelRequest;
 import com.ward.hospital.dto.appointment.RescheduleRequest;
@@ -55,6 +56,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @DisplayName("Appointment booking engine integration tests")
 class AppointmentServiceIntegrationTest {
+
+    private static final CompleteRequest CONCLUSION = new CompleteRequest("Диагноз", "Заключение", null);
 
     @Autowired
     private AppointmentService appointmentService;
@@ -152,8 +155,8 @@ class AppointmentServiceIntegrationTest {
         assertThat(response.startTime()).isEqualTo(workingDate.atTime(10, 0));
         assertThat(response.endTime()).isEqualTo(workingDate.atTime(10, 30));
         assertThat(response.price()).isEqualByComparingTo("2500.00");
-        assertThat(response.doctorName()).isEqualTo("Иван Врач");
-        assertThat(response.patientName()).isEqualTo("Пациент Тестов");
+        assertThat(response.doctorName()).isEqualTo("Врач Иван");
+        assertThat(response.patientName()).isEqualTo("Тестов Пациент");
         assertThat(appointmentRepository.countByDoctorId(doctor.getId())).isEqualTo(1);
     }
 
@@ -292,7 +295,7 @@ class AppointmentServiceIntegrationTest {
     void doctorCompletesOwnStartedAppointment() {
         Appointment started = pastAppointment(doctor, LocalDateTime.now().minusHours(1), AppointmentStatus.SCHEDULED);
 
-        AppointmentResponse completed = appointmentService.complete(started.getId(), doctorPrincipal);
+        AppointmentResponse completed = appointmentService.complete(started.getId(), CONCLUSION, doctorPrincipal);
 
         assertThat(completed.status()).isEqualTo(AppointmentStatus.COMPLETED);
         assertThat(completed.completedAt()).isNotNull();
@@ -305,7 +308,7 @@ class AppointmentServiceIntegrationTest {
                 new AppointmentCreateRequest(doctor.getId(), patient.getId(), shortService.getId(),
                         workingDate.atTime(13, 0), null), adminPrincipal);
 
-        assertThatThrownBy(() -> appointmentService.complete(future.id(), adminPrincipal))
+        assertThatThrownBy(() -> appointmentService.complete(future.id(), CONCLUSION, adminPrincipal))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("до его начала");
     }
@@ -316,7 +319,7 @@ class AppointmentServiceIntegrationTest {
         Appointment foreign = pastAppointment(secondDoctor, LocalDateTime.now().minusHours(1),
                 AppointmentStatus.SCHEDULED);
 
-        assertThatThrownBy(() -> appointmentService.complete(foreign.getId(), doctorPrincipal))
+        assertThatThrownBy(() -> appointmentService.complete(foreign.getId(), CONCLUSION, doctorPrincipal))
                 .isInstanceOf(ForbiddenOperationException.class);
         assertThatThrownBy(() -> appointmentService.cancel(foreign.getId(),
                 new CancelRequest("Не мой приём"), doctorPrincipal))
@@ -329,7 +332,7 @@ class AppointmentServiceIntegrationTest {
         Appointment started = pastAppointment(doctor, LocalDateTime.now().minusHours(1),
                 AppointmentStatus.SCHEDULED);
 
-        assertThatThrownBy(() -> appointmentService.complete(started.getId(), receptionistPrincipal))
+        assertThatThrownBy(() -> appointmentService.complete(started.getId(), CONCLUSION, receptionistPrincipal))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
 

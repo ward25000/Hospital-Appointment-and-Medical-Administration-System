@@ -23,3 +23,9 @@ data/
 
 # Local database
 mysql-data/
+
+# Receipts saved while SMTP is not configured
+mail-outbox/
+
+# Database dumps made before a reset
+backups/

@@ -1,5 +1,8 @@
 package com.ward.hospital.service;
 
+import com.ward.hospital.exception.BusinessRuleException;
+import com.ward.hospital.repository.SpecializationRepository;
+import com.ward.hospital.i18n.I18n;
 import com.ward.hospital.domain.MedicalService;
 import com.ward.hospital.dto.service.MedicalServiceRequest;
 import com.ward.hospital.dto.service.MedicalServiceResponse;
@@ -20,11 +23,14 @@ public class ServiceCatalogService {
 
     private final MedicalServiceRepository serviceRepository;
     private final AppointmentRepository appointmentRepository;
+    private final SpecializationRepository specializationRepository;
 
     public ServiceCatalogService(MedicalServiceRepository serviceRepository,
-                                 AppointmentRepository appointmentRepository) {
+                                 AppointmentRepository appointmentRepository,
+                                 SpecializationRepository specializationRepository) {
         this.serviceRepository = serviceRepository;
         this.appointmentRepository = appointmentRepository;
+        this.specializationRepository = specializationRepository;
     }
 
     public List<MedicalServiceResponse> findAll() {
@@ -49,6 +55,7 @@ public class ServiceCatalogService {
                 normalizePrice(request.price()),
                 request.durationMinutes()
         );
+        applyDetails(service, request);
         service.setActive(request.active() == null || request.active());
         return MedicalServiceResponse.from(serviceRepository.save(service));
     }
@@ -64,6 +71,7 @@ public class ServiceCatalogService {
         service.setDescription(normalize(request.description()));
         service.setPrice(normalizePrice(request.price()));
         service.setDurationMinutes(request.durationMinutes());
+        applyDetails(service, request);
         if (request.active() != null) {
             service.setActive(request.active());
         }
@@ -75,10 +83,25 @@ public class ServiceCatalogService {
         MedicalService service = getEntity(id);
         long appointmentsCount = appointmentRepository.countByServiceId(id);
         if (appointmentsCount > 0) {
-            throw new ConflictException("Нельзя удалить услугу: она используется в приёмах — " + appointmentsCount
-                    + ". Отключите услугу вместо удаления.");
+            throw new ConflictException(I18n.t(
+                    "Нельзя удалить услугу: она используется в приёмах — {0}. Отключите услугу вместо удаления.",
+                    appointmentsCount));
         }
         serviceRepository.delete(service);
+    }
+
+    private void applyDetails(MedicalService service, MedicalServiceRequest request) {
+        service.translate(normalize(request.nameKk()), normalize(request.nameEn()),
+                normalize(request.descriptionKk()), normalize(request.descriptionEn()));
+        boolean diagnostic = Boolean.TRUE.equals(request.diagnostic());
+        if (diagnostic && request.specializationId() == null) {
+            throw new BusinessRuleException("Для диагностической услуги укажите отделение");
+        }
+        service.setDiagnostic(diagnostic);
+        service.setOffice(normalize(request.office()));
+        service.setSpecialization(request.specializationId() == null ? null
+                : specializationRepository.findById(request.specializationId())
+                .orElseThrow(() -> new NotFoundException("Специализация не найдена")));
     }
 
     private MedicalService getEntity(Long id) {

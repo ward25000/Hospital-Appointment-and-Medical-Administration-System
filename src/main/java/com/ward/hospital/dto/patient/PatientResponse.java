@@ -2,6 +2,7 @@ package com.ward.hospital.dto.patient;
 
 import com.ward.hospital.domain.Gender;
 import com.ward.hospital.domain.Patient;
+import com.ward.hospital.i18n.I18n;
 
 import java.time.LocalDate;
 import java.time.Period;
@@ -12,6 +13,7 @@ public record PatientResponse(
         Long userId,
         String firstName,
         String lastName,
+        String middleName,
         String fullName,
         LocalDate birthDate,
         int age,
@@ -19,7 +21,11 @@ public record PatientResponse(
         String genderLabel,
         String phone,
         String email,
-        String address
+        String address,
+        String city,
+        String street,
+        String house,
+        String apartment
 ) {
 
     public static PatientResponse from(Patient patient) {
@@ -29,6 +35,7 @@ public record PatientResponse(
                 patient.getUser() == null ? null : patient.getUser().getId(),
                 patient.getFirstName(),
                 patient.getLastName(),
+                patient.getMiddleName(),
                 patient.getFullName(),
                 patient.getBirthDate(),
                 Period.between(patient.getBirthDate(), LocalDate.now()).getYears(),
@@ -36,7 +43,11 @@ public record PatientResponse(
                 patient.getGender().getLabel(),
                 patient.getPhone(),
                 patient.getEmail(),
-                patient.getAddress()
+                patient.addressText(I18n.lang()),
+                patient.getAddressCity(),
+                patient.getAddressStreet(),
+                patient.getAddressHouse(),
+                patient.getAddressApartment()
         );
     }
 }

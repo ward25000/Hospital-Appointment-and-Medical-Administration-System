@@ -1,5 +1,6 @@
 package com.ward.hospital.service;
 
+import com.ward.hospital.i18n.I18n;
 import com.ward.hospital.domain.Doctor;
 import com.ward.hospital.domain.Role;
 import com.ward.hospital.domain.Specialization;
@@ -70,13 +71,16 @@ public class DoctorService {
         }
 
         User user = new User(username, passwordEncoder.encode(request.password()),
-                fullName(request.firstName(), request.lastName()), Role.DOCTOR);
+                fullName(request.lastName(), request.firstName(), request.middleName()), Role.DOCTOR);
         userRepository.save(user);
 
         Doctor doctor = new Doctor(user, specialization,
                 request.firstName().trim(), request.lastName().trim(),
                 email, request.phone().trim(), request.office().trim());
+        doctor.setMiddleName(normalize(request.middleName()));
         doctor.setBio(normalize(request.bio()));
+        doctor.setBioKk(normalize(request.bioKk()));
+        doctor.setBioEn(normalize(request.bioEn()));
         doctor.setActive(true);
         return DoctorResponse.from(doctorRepository.save(doctor));
     }
@@ -100,9 +104,12 @@ public class DoctorService {
         doctor.setEmail(email);
         doctor.setPhone(request.phone().trim());
         doctor.setOffice(request.office().trim());
+        doctor.setMiddleName(normalize(request.middleName()));
         doctor.setBio(normalize(request.bio()));
+        doctor.setBioKk(normalize(request.bioKk()));
+        doctor.setBioEn(normalize(request.bioEn()));
 
-        doctor.getUser().setFullName(fullName(request.firstName(), request.lastName()));
+        doctor.getUser().setFullName(fullName(request.lastName(), request.firstName(), request.middleName()));
         if (request.active() != null) {
             doctor.setActive(request.active());
             doctor.getUser().setEnabled(request.active());
@@ -115,8 +122,9 @@ public class DoctorService {
         Doctor doctor = getDetailed(id);
         long appointmentsCount = appointmentRepository.countByDoctorId(id);
         if (appointmentsCount > 0) {
-            throw new ConflictException("Нельзя удалить врача: в системе есть приёмы — " + appointmentsCount
-                    + ". Отключите профиль врача вместо удаления.");
+            throw new ConflictException(I18n.t(
+                    "Нельзя удалить врача: в системе есть приёмы — {0}. Отключите профиль врача вместо удаления.",
+                    appointmentsCount));
         }
         User user = doctor.getUser();
         doctorRepository.delete(doctor);
@@ -134,8 +142,9 @@ public class DoctorService {
                 .orElseThrow(() -> new NotFoundException("Специализация не найдена"));
     }
 
-    private String fullName(String firstName, String lastName) {
-        return firstName.trim() + " " + lastName.trim();
+    private String fullName(String lastName, String firstName, String middleName) {
+        String base = lastName.trim() + " " + firstName.trim();
+        return normalize(middleName) == null ? base : base + " " + middleName.trim();
     }
 
     private String normalize(String value) {

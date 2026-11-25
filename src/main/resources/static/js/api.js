@@ -1,3 +1,5 @@
+import { t, getLang } from './i18n.js';
+
 const API_BASE = '/api';
 
 export class ApiError extends Error {
@@ -14,23 +16,28 @@ let csrf = null;
 
 export function getErrorMessage(error) {
   if (error instanceof ApiError || error instanceof Error) {
-    return error.message || 'Не удалось выполнить операцию';
+    return error.message || t('Не удалось выполнить операцию');
   }
-  return 'Не удалось выполнить операцию';
+  return t('Не удалось выполнить операцию');
 }
 
 export async function ensureCsrf(force = false) {
   if (csrf && !force) {
     return csrf;
   }
-  const response = await fetch('/api/auth/csrf', {
-    method: 'GET',
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
-  });
+  let response;
+  try {
+    response = await fetch('/api/auth/csrf', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json', 'Accept-Language': getLang() },
+    });
+  } catch {
+    throw new ApiError(t('Сервер недоступен. Проверьте соединение и повторите попытку'), 0);
+  }
   if (!response.ok) {
     csrf = null;
-    throw new ApiError('Не удалось получить защитный токен сессии', response.status);
+    throw new ApiError(t('Не удалось получить защитный токен сессии'), response.status);
   }
   csrf = await response.json();
   return csrf;
@@ -66,7 +73,7 @@ function buildQuery(params = {}) {
 
 async function send(path, options = {}, retry = true) {
   const method = (options.method || 'GET').toUpperCase();
-  const headers = { Accept: 'application/json', ...(options.headers || {}) };
+  const headers = { Accept: 'application/json', 'Accept-Language': getLang(), ...(options.headers || {}) };
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
@@ -88,9 +95,12 @@ async function send(path, options = {}, retry = true) {
     if (error?.name === 'AbortError') {
       throw error;
     }
-    throw new ApiError('Сервер недоступен. Проверьте соединение и повторите попытку', 0);
+    throw new ApiError(t('Сервер недоступен. Проверьте соединение и повторите попытку'), 0);
   }
 
+  if (response.ok && options.blob) {
+    return response.blob();
+  }
   const payload = await parseResponse(response);
 
   if (!response.ok) {
@@ -99,7 +109,7 @@ async function send(path, options = {}, retry = true) {
       return send(path, { ...options, noCsrfRetry: true }, false);
     }
     const message = payload?.message
-      || (response.status === 401 ? 'Требуется авторизация' : 'Не удалось выполнить операцию');
+      || (response.status === 401 ? t('Требуется авторизация') : t('Не удалось выполнить операцию'));
     if (response.status === 401 && !path.startsWith('/auth/')) {
       resetCsrf();
       document.dispatchEvent(new CustomEvent('auth:expired'));
@@ -110,8 +120,22 @@ async function send(path, options = {}, retry = true) {
   return payload;
 }
 
+async function downloadPdf(path, filename) {
+  const blob = await send(path, { blob: true, headers: { Accept: 'application/pdf, application/json' } });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+}
+
 const auth = {
   csrf: ensureCsrf,
+  lookupIin(iin) {
+    return send('/auth/iin', { method: 'POST', body: { iin } });
+  },
   async login(credentials) {
     const user = await send('/auth/login', { method: 'POST', body: credentials });
     await ensureCsrf(true);
@@ -145,8 +169,14 @@ const appointments = {
   reschedule(id, data) {
     return send(`/appointments/${id}/reschedule`, { method: 'PUT', body: data });
   },
-  complete(id) {
-    return send(`/appointments/${id}/complete`, { method: 'POST' });
+  complete(id, data) {
+    return send(`/appointments/${id}/complete`, { method: 'POST', body: data });
+  },
+  referrals(id) {
+    return send(`/appointments/${id}/referrals`);
+  },
+  certificate(id) {
+    return downloadPdf(`/appointments/${id}/certificate`, `medflow-certificate-${id}-${getLang()}.pdf`);
   },
   noShow(id) {
     return send(`/appointments/${id}/no-show`, { method: 'POST' });
@@ -256,11 +286,50 @@ const me = {
   visits() {
     return send('/me/visits');
   },
+  setLanguage(lang) {
+    return send('/me/language', { method: 'PUT', body: { lang } });
+  },
+  payables() {
+    return send('/me/payables');
+  },
+  payments() {
+    return send('/me/payments');
+  },
+  pay(data) {
+    return send('/me/payments', { method: 'POST', body: data });
+  },
+  receipt(id) {
+    return downloadPdf(`/me/payments/${id}/receipt`, `medflow-receipt-${id}-${getLang()}.pdf`);
+  },
+  resend(id) {
+    return send(`/me/payments/${id}/resend`, { method: 'POST' });
+  },
+};
+
+const payments = {
+  list(params = {}) {
+    return send(`/payments${buildQuery(params)}`);
+  },
+  payables(patientId) {
+    return send(`/payments/payables${buildQuery({ patientId })}`);
+  },
+  cashDesk(data) {
+    return send('/payments/cash-desk', { method: 'POST', body: data });
+  },
+  receipt(id) {
+    return downloadPdf(`/payments/${id}/receipt`, `medflow-receipt-${id}-${getLang()}.pdf`);
+  },
+  resend(id) {
+    return send(`/payments/${id}/resend`, { method: 'POST' });
+  },
 };
 
 const referrals = {
   incoming(status) {
     return send(`/referrals/incoming${buildQuery({ status })}`);
+  },
+  outgoing() {
+    return send('/referrals/outgoing');
   },
   mine() {
     return send('/referrals/mine');
@@ -283,7 +352,11 @@ export const api = {
   schedules,
   reports,
   me,
+  payments,
   referrals,
+  clinic() {
+    return send('/clinic');
+  },
   dashboard() {
     return send('/dashboard');
   },

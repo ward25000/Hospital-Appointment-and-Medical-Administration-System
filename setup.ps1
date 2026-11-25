@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
     MedFlow - automatic setup for a new Windows device.
 
@@ -23,6 +23,12 @@ param(
 $ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $ProjectRoot 'medflow-common.ps1')
+trap {
+    Write-Host ""
+    Write-Host "[setup] ERROR: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
 
 # Refresh environment: the terminal is usually older than the variables we set.
 $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
@@ -195,86 +201,20 @@ if (-not (Test-Path (Join-Path $MySqlHome 'bin\mysqld.exe'))) {
 $mysqlStart = Join-Path $MySqlHome 'mysql-start.ps1'
 $mysqlStop = Join-Path $MySqlHome 'mysql-stop.ps1'
 
-$startScript = @'
+# Thin wrappers: all the logic lives in medflow-common.ps1 of the project.
+$common = Join-Path $ProjectRoot 'medflow-common.ps1'
+$wrapper = @'
 #requires -Version 5.1
-param(
-    [string]$MySQLHome = "$env:USERPROFILE\mysql84",
-    [int]$Port = 3306
-)
-$ErrorActionPreference = 'Stop'
-$mysqld = Join-Path $MySQLHome 'bin\mysqld.exe'
-$mysql = Join-Path $MySQLHome 'bin\mysql.exe'
-$mysqladmin = Join-Path $MySQLHome 'bin\mysqladmin.exe'
-$data = Join-Path $MySQLHome 'data'
-$pidFile = Join-Path $MySQLHome 'mysqld.pid'
-if (-not (Test-Path $mysqld)) { throw "mysqld.exe not found in $MySQLHome\bin" }
-if (-not (Test-Path $data)) {
-    Write-Host "Initializing data directory (first run only)..."
-    New-Item -ItemType Directory -Path $data -Force | Out-Null
-    & $mysqld --initialize-insecure "--basedir=$MySQLHome" "--datadir=$data" --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "MySQL initialization failed" }
-}
-$listening = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
-if (-not $listening) {
-    Write-Host "Starting MySQL on port $Port ..."
-    $serverArgs = @(
-        "--basedir=$MySQLHome",
-        "--datadir=$data",
-        "--port=$Port",
-        "--bind-address=127.0.0.1",
-        "--character-set-server=utf8mb4",
-        "--collation-server=utf8mb4_unicode_ci",
-        "--default-storage-engine=InnoDB"
-    )
-    $process = Start-Process -FilePath $mysqld -ArgumentList $serverArgs -PassThru -WindowStyle Hidden
-    Set-Content -Path $pidFile -Value $process.Id
-}
-$ready = $false
-for ($i = 0; $i -lt 60; $i++) {
-    $ping = & $mysqladmin "--protocol=tcp" "-h127.0.0.1" "-P$Port" "-uroot" ping 2>&1
-    if ($LASTEXITCODE -eq 0 -and "$ping" -match 'alive') { $ready = $true; break }
-    Start-Sleep -Seconds 1
-}
-if (-not $ready) { throw "MySQL did not become ready on port $Port" }
-$sql = @"
-CREATE DATABASE IF NOT EXISTS hospital_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS 'hospital'@'%' IDENTIFIED BY 'hospital_pass';
-CREATE USER IF NOT EXISTS 'hospital'@'localhost' IDENTIFIED BY 'hospital_pass';
-GRANT ALL PRIVILEGES ON hospital_db.* TO 'hospital'@'%';
-GRANT ALL PRIVILEGES ON hospital_db.* TO 'hospital'@'localhost';
-FLUSH PRIVILEGES;
-"@
-& $mysql "--protocol=tcp" "-h127.0.0.1" "-P$Port" "-uroot" "--default-character-set=utf8mb4" -e $sql 2>&1
-if ($LASTEXITCODE -ne 0) { throw "Could not create hospital_db / hospital user" }
-Write-Host "MySQL is ready: database hospital_db, user hospital, port $Port"
+. '__COMMON__'
+try { __CALL__ } catch { Write-Host $_.Exception.Message -ForegroundColor Red; exit 1 }
 '@
-
-$stopScript = @'
-#requires -Version 5.1
-param([string]$MySQLHome = "$env:USERPROFILE\mysql84")
-$ErrorActionPreference = 'Continue'
-$stopped = 0
-Get-CimInstance Win32_Process -Filter "Name='mysqld.exe'" -ErrorAction SilentlyContinue |
-    Where-Object {
-        $_.ExecutablePath -like "$MySQLHome*" -or
-        $_.CommandLine -match [regex]::Escape("--datadir=$MySQLHome")
-    } |
-    ForEach-Object {
-        Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-        Write-Host "Stopped MySQL process $($_.ProcessId)"
-        $stopped++
-    }
-if ($stopped -eq 0) { Write-Host "MySQL is not running." }
-$pidFile = Join-Path $MySQLHome 'mysqld.pid'
-if (Test-Path $pidFile) { Remove-Item $pidFile -Force -ErrorAction SilentlyContinue }
-'@
-
-Set-Content -Path $mysqlStart -Value $startScript -Encoding UTF8
-Set-Content -Path $mysqlStop -Value $stopScript -Encoding UTF8
+$call = "Start-MfMySql '" + $MySqlHome.Replace("'", "''") + "' 3306"
+Set-Content -Path $mysqlStart -Encoding UTF8 -Value ($wrapper.Replace('__COMMON__', $common.Replace("'", "''")).Replace('__CALL__', $call))
+$call = "Stop-MfMySql '" + $MySqlHome.Replace("'", "''") + "'"
+Set-Content -Path $mysqlStop -Encoding UTF8 -Value ($wrapper.Replace('__COMMON__', $common.Replace("'", "''")).Replace('__CALL__', $call))
 
 Write-Step "Starting MySQL and creating hospital_db"
-& powershell -NoProfile -ExecutionPolicy Bypass -File $mysqlStart
-if ($LASTEXITCODE -ne 0) { throw 'MySQL start failed' }
+Start-MfMySql $MySqlHome 3306
 
 # --- 5. Docker compatibility --------------------------------------------------
 Write-Step "Checking Docker"
@@ -394,9 +334,7 @@ $config | ConvertTo-Json | Set-Content -Path (Join-Path $ToolsRoot 'medflow-setu
 Write-Host ""
 Write-Host "MedFlow setup is complete." -ForegroundColor Green
 Write-Host "Open a NEW PowerShell window, then run:" -ForegroundColor Yellow
-Write-Host "  cd $junction"
-Write-Host "  .\setup.ps1          # safe to re-run any time"
-Write-Host "  .\mvnw.cmd spring-boot:run"
+Write-Host "  start.cmd"
 Write-Host ""
 Write-Host "Docker mode: $dockerMode"
 Write-Host "MySQL:       $MySqlHome (hospital_db / hospital / hospital_pass)"

@@ -8,8 +8,20 @@ public record SpecializationRequest(
         @Size(max = 120, message = "Название не должно превышать 120 символов")
         String name,
 
+        @Size(max = 120, message = "Название не должно превышать 120 символов")
+        String nameKk,
+
+        @Size(max = 120, message = "Название не должно превышать 120 символов")
+        String nameEn,
+
         @Size(max = 500, message = "Описание не должно превышать 500 символов")
         String description,
+
+        @Size(max = 500, message = "Описание не должно превышать 500 символов")
+        String descriptionKk,
+
+        @Size(max = 500, message = "Описание не должно превышать 500 символов")
+        String descriptionEn,
 
         Boolean active
 ) {

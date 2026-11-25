@@ -15,8 +15,20 @@ public record MedicalServiceRequest(
         @Size(max = 150, message = "Название не должно превышать 150 символов")
         String name,
 
+        @Size(max = 150, message = "Название не должно превышать 150 символов")
+        String nameKk,
+
+        @Size(max = 150, message = "Название не должно превышать 150 символов")
+        String nameEn,
+
         @Size(max = 500, message = "Описание не должно превышать 500 символов")
         String description,
+
+        @Size(max = 500, message = "Описание не должно превышать 500 символов")
+        String descriptionKk,
+
+        @Size(max = 500, message = "Описание не должно превышать 500 символов")
+        String descriptionEn,
 
         @NotNull(message = "Укажите стоимость услуги")
         @DecimalMin(value = "0.00", message = "Стоимость не может быть отрицательной")
@@ -27,6 +39,13 @@ public record MedicalServiceRequest(
         @Min(value = 5, message = "Длительность должна быть не менее 5 минут")
         @Max(value = 240, message = "Длительность должна быть не более 240 минут")
         Integer durationMinutes,
+
+        Boolean diagnostic,
+
+        @Size(max = 30, message = "Номер кабинета слишком длинный")
+        String office,
+
+        Long specializationId,
 
         Boolean active
 ) {

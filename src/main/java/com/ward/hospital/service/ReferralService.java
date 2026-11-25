@@ -1,5 +1,7 @@
 package com.ward.hospital.service;
 
+import com.ward.hospital.repository.MedicalServiceRepository;
+import com.ward.hospital.domain.MedicalService;
 import com.ward.hospital.domain.Appointment;
 import com.ward.hospital.domain.Doctor;
 import com.ward.hospital.domain.Referral;
@@ -31,15 +33,18 @@ public class ReferralService {
     private final AppointmentRepository appointmentRepository;
     private final DoctorRepository doctorRepository;
     private final SpecializationRepository specializationRepository;
+    private final MedicalServiceRepository medicalServiceRepository;
 
     public ReferralService(ReferralRepository referralRepository,
                            AppointmentRepository appointmentRepository,
                            DoctorRepository doctorRepository,
-                           SpecializationRepository specializationRepository) {
+                           SpecializationRepository specializationRepository,
+                           MedicalServiceRepository medicalServiceRepository) {
         this.referralRepository = referralRepository;
         this.appointmentRepository = appointmentRepository;
         this.doctorRepository = doctorRepository;
         this.specializationRepository = specializationRepository;
+        this.medicalServiceRepository = medicalServiceRepository;
     }
 
     public List<ReferralResponse> findIncoming(UserPrincipal actor, ReferralStatus status) {
@@ -47,6 +52,12 @@ public class ReferralService {
         Long specializationId = doctor.getSpecialization() == null
                 ? null : doctor.getSpecialization().getId();
         return referralRepository.searchIncoming(doctor.getId(), specializationId, status).stream()
+                .map(ReferralResponse::from)
+                .toList();
+    }
+
+    public List<ReferralResponse> findOutgoing(UserPrincipal actor) {
+        return referralRepository.findByFromDoctorIdOrderByCreatedAtDesc(getDoctor(actor).getId()).stream()
                 .map(ReferralResponse::from)
                 .toList();
     }
@@ -75,12 +86,26 @@ public class ReferralService {
         if (request.toDoctorId() != null && request.toSpecializationId() != null) {
             throw new BusinessRuleException("Укажите либо конкретного врача, либо специальность");
         }
-        if (request.toDoctorId() == null && request.toSpecializationId() == null) {
+        MedicalService service = null;
+        if (request.serviceId() != null) {
+            service = medicalServiceRepository.findById(request.serviceId())
+                    .filter(MedicalService::isActive)
+                    .orElseThrow(() -> new NotFoundException("Услуга не найдена"));
+        }
+        if (request.toDoctorId() == null && request.toSpecializationId() == null
+                && service != null && service.isDiagnostic()) {
+            toSpecialization = service.getSpecialization();
+        }
+        if (request.toDoctorId() == null && request.toSpecializationId() == null && toSpecialization == null) {
             throw new BusinessRuleException("Укажите врача или специальность, к которому направляется пациент");
         }
         if (request.toDoctorId() != null) {
             toDoctor = doctorRepository.findById(request.toDoctorId())
+                    .filter(Doctor::isActive)
                     .orElseThrow(() -> new NotFoundException("Врач-получатель не найден"));
+            if (Objects.equals(toDoctor.getId(), fromDoctor.getId())) {
+                throw new BusinessRuleException("Нельзя направить пациента к самому себе");
+            }
         }
         if (request.toSpecializationId() != null) {
             toSpecialization = specializationRepository.findById(request.toSpecializationId())
@@ -95,12 +120,17 @@ public class ReferralService {
                 department = toDoctor.getSpecialization().getName();
             } else {
                 department = toSpecialization.getName();
+                office = service == null ? null : service.getOffice();
             }
         }
 
         Referral referral = new Referral(appointment.getPatient(), fromDoctor, appointment);
         referral.setToDoctor(toDoctor);
         referral.setToSpecialization(toSpecialization);
+        if (service != null) {
+            referral.setService(service);
+            referral.setPrice(service.getPrice());
+        }
         referral.setDepartment(department);
         referral.setOffice(office);
         referral.setReason(normalize(request.reason()));

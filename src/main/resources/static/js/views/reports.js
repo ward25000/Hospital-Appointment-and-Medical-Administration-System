@@ -1,4 +1,5 @@
 import { api, getErrorMessage } from '../api.js';
+import { t } from '../i18n.js';
 import {
   icon,
   esc,
@@ -56,23 +57,23 @@ function renderReport(report) {
   return `
     <div class="stack">
       <section class="report-kpis">
-        ${kpi('Всего приёмов', formatNumber(summary.totalAppointments), `${formatNumber(summary.scheduled)} запланировано`)}
-        ${kpi('Завершено', formatNumber(summary.completed), `${formatNumber(summary.cancelled)} отменено`, 'var(--success)')}
-        ${kpi('Уникальных пациентов', formatNumber(summary.uniquePatients), 'за выбранный период')}
-        ${kpi('Выручка', formatMoney(summary.revenue), 'по завершённым приёмам', 'var(--primary-strong)')}
-        ${kpi('Средний чек', formatMoney(summary.averageCheck), 'на один завершённый приём')}
+        ${kpi(t('Всего приёмов'), formatNumber(summary.totalAppointments), t('{0} запланировано', [formatNumber(summary.scheduled)]))}
+        ${kpi(t('Завершено'), formatNumber(summary.completed), t('{0} отменено', [formatNumber(summary.cancelled)]), 'var(--success)')}
+        ${kpi(t('Уникальных пациентов'), formatNumber(summary.uniquePatients), t('за выбранный период'))}
+        ${kpi(t('Выручка'), formatMoney(summary.revenue), t('по завершённым приёмам'), 'var(--primary-strong)')}
+        ${kpi(t('Средний чек'), formatMoney(summary.averageCheck), t('на один завершённый приём'))}
       </section>
 
       <section class="card chart-card">
         <div class="chart-head">
           <div>
-            <div class="card-title">Динамика приёмов по дням</div>
+            <div class="card-title">${t('Динамика приёмов по дням')}</div>
             <div class="card-subtitle">${formatDateLong(report.from)} — ${formatDateLong(report.to)}</div>
           </div>
           <div class="chart-legend">
-            <span class="legend-item"><span class="legend-dot"></span> Все приёмы</span>
-            <span class="legend-item"><span class="legend-dot completed"></span> Завершённые</span>
-            <span class="legend-item"><span class="legend-dot cancelled"></span> Есть отмены</span>
+            <span class="legend-item"><span class="legend-dot"></span> ${t('Все приёмы')}</span>
+            <span class="legend-item"><span class="legend-dot completed"></span> ${t('Завершённые')}</span>
+            <span class="legend-item"><span class="legend-dot cancelled"></span> ${t('Есть отмены')}</span>
           </div>
         </div>
         ${hasData
@@ -83,7 +84,7 @@ function renderReport(report) {
                   const completedShare = day.total === 0 ? 0 : Math.round((day.completed / day.total) * 100);
                   return `
                     <div class="chart-col ${day.cancelled > 0 ? 'has-cancelled' : ''}"
-                         title="${esc(formatDate(day.date))}: ${day.total} приёмов, завершено ${day.completed}, отменено ${day.cancelled}, выручка ${formatMoney(day.revenue)}">
+                         title="${esc(t('{0}: приёмов {1}, завершено {2}, отменено {3}, выручка {4}', [formatDate(day.date), day.total, day.completed, day.cancelled, formatMoney(day.revenue)]))}">
                       <div class="chart-bar" style="height:${height}px">
                         ${day.completed > 0 ? `<div class="chart-bar-fill" style="height:${completedShare}%"></div>` : ''}
                       </div>
@@ -93,20 +94,20 @@ function renderReport(report) {
                 }).join('')}
               </div>
             </div>`
-          : '<div class="chart-empty">За выбранный период приёмов нет</div>'}
+          : `<div class="chart-empty">${t('За выбранный период приёмов нет')}</div>`}
       </section>
 
       <div class="report-tables">
         <section class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">Нагрузка врачей</div>
-              <div class="card-subtitle">Количество приёмов и выручка по специалистам</div>
+              <div class="card-title">${t('Нагрузка врачей')}</div>
+              <div class="card-subtitle">${t('Количество приёмов и выручка по специалистам')}</div>
             </div>
           </div>
           ${report.byDoctor.length
             ? `<div class="table-wrap"><table class="table">
-                <thead><tr><th>Врач</th><th class="num">Всего</th><th class="num">Завершено</th><th class="num">Отменено</th><th class="num">Выручка</th></tr></thead>
+                <thead><tr><th>${t('Врач')}</th><th class="num">${t('Всего')}</th><th class="num">${t('Завершено')}</th><th class="num">${t('Отменено')}</th><th class="num">${t('Выручка')}</th></tr></thead>
                 <tbody>
                   ${report.byDoctor.map((doctor) => `
                     <tr>
@@ -122,19 +123,19 @@ function renderReport(report) {
                   `).join('')}
                 </tbody>
               </table></div>`
-            : emptyState({ iconName: 'doctors', title: 'Нет данных по врачам', text: 'За выбранный период приёмов не было.' })}
+            : emptyState({ iconName: 'doctors', title: t('Нет данных по врачам'), text: t('За выбранный период приёмов не было.') })}
         </section>
 
         <section class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">Выручка по услугам</div>
-              <div class="card-subtitle">Завершённые приёмы и стоимость услуг</div>
+              <div class="card-title">${t('Выручка по услугам')}</div>
+              <div class="card-subtitle">${t('Завершённые приёмы и стоимость услуг')}</div>
             </div>
           </div>
           ${report.byService.length
             ? `<div class="table-wrap"><table class="table">
-                <thead><tr><th>Услуга</th><th class="num">Всего</th><th class="num">Завершено</th><th class="num">Выручка</th></tr></thead>
+                <thead><tr><th>${t('Услуга')}</th><th class="num">${t('Всего')}</th><th class="num">${t('Завершено')}</th><th class="num">${t('Выручка')}</th></tr></thead>
                 <tbody>
                   ${report.byService.map((service) => `
                     <tr>
@@ -146,7 +147,7 @@ function renderReport(report) {
                   `).join('')}
                 </tbody>
               </table></div>`
-            : emptyState({ iconName: 'catalog', title: 'Нет данных по услугам', text: 'За выбранный период завершённых приёмов не было.' })}
+            : emptyState({ iconName: 'catalog', title: t('Нет данных по услугам'), text: t('За выбранный период завершённых приёмов не было.') })}
         </section>
       </div>
     </div>
@@ -158,24 +159,24 @@ export async function render(root, ctx) {
     <div class="stack">
       <section class="card report-filter-card">
         <div class="field">
-          <label for="report-from">Начало периода</label>
+          <label for="report-from">${t('Начало периода')}</label>
           <input class="input" type="date" id="report-from" value="${esc(state.from)}" max="${todayISO()}">
         </div>
         <div class="field">
-          <label for="report-to">Конец периода</label>
+          <label for="report-to">${t('Конец периода')}</label>
           <input class="input" type="date" id="report-to" value="${esc(state.to)}" max="${todayISO()}">
         </div>
         <div class="flex gap-8 items-center">
-          <button type="button" class="btn btn-secondary btn-sm" data-range="month">Текущий месяц</button>
-          <button type="button" class="btn btn-secondary btn-sm" data-range="previous">Прошлый месяц</button>
-          <button type="button" class="btn btn-secondary btn-sm" data-range="30">30 дней</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-range="month">${t('Текущий месяц')}</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-range="previous">${t('Прошлый месяц')}</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-range="30">${t('30 дней')}</button>
         </div>
         <div class="spacer"></div>
         <button type="button" class="btn btn-secondary" id="report-export" disabled>${icon('download')}<span>CSV</span></button>
-        <button type="button" class="btn btn-primary" id="report-build">${icon('filter')}<span>Сформировать</span></button>
+        <button type="button" class="btn btn-primary" id="report-build">${icon('filter')}<span>${t('Сформировать')}</span></button>
       </section>
 
-      <div data-report>${loadingState('Формируем отчёт…')}</div>
+      <div data-report>${loadingState(t('Формируем отчёт…'))}</div>
     </div>
   `;
 
@@ -186,16 +187,16 @@ export async function render(root, ctx) {
 
   const load = async () => {
     if (!fromInput.value || !toInput.value) {
-      toast('Укажите начало и конец периода', 'error');
+      toast(t('Укажите начало и конец периода'), 'error');
       return;
     }
     if (toInput.value < fromInput.value) {
-      toast('Дата окончания не может быть раньше даты начала', 'error');
+      toast(t('Дата окончания не может быть раньше даты начала'), 'error');
       return;
     }
     state.from = fromInput.value;
     state.to = toInput.value;
-    container.innerHTML = loadingState('Формируем отчёт…');
+    container.innerHTML = loadingState(t('Формируем отчёт…'));
     try {
       const report = await api.reports.get({ from: state.from, to: state.to });
       container.innerHTML = renderReport(report);
@@ -240,18 +241,18 @@ export async function render(root, ctx) {
     }
     const report = lastReport;
     const rows = [
-      ['MedFlow — отчёт по приёмам', `${formatDate(report.from)} — ${formatDate(report.to)}`],
+      [t('MedFlow — отчёт по приёмам'), `${formatDate(report.from)} — ${formatDate(report.to)}`],
       [],
-      ['Показатель', 'Значение'],
-      ['Всего приёмов', report.summary.totalAppointments],
-      ['Запланировано', report.summary.scheduled],
-      ['Завершено', report.summary.completed],
-      ['Отменено', report.summary.cancelled],
-      ['Уникальных пациентов', report.summary.uniquePatients],
-      ['Выручка, ₽', report.summary.revenue],
-      ['Средний чек, ₽', report.summary.averageCheck],
+      [t('Показатель'), t('Значение')],
+      [t('Всего приёмов'), report.summary.totalAppointments],
+      [t('Запланировано'), report.summary.scheduled],
+      [t('Завершено'), report.summary.completed],
+      [t('Отменено'), report.summary.cancelled],
+      [t('Уникальных пациентов'), report.summary.uniquePatients],
+      [t('Выручка, ₸'), report.summary.revenue],
+      [t('Средний чек, ₸'), report.summary.averageCheck],
       [],
-      ['Врач', 'Специализация', 'Всего', 'Завершено', 'Отменено', 'Выручка, ₽'],
+      [t('Врач'), t('Специализация'), t('Всего'), t('Завершено'), t('Отменено'), t('Выручка, ₸')],
       ...report.byDoctor.map((doctor) => [
         doctor.doctorName,
         doctor.specialization,
@@ -261,7 +262,7 @@ export async function render(root, ctx) {
         doctor.revenue,
       ]),
       [],
-      ['Услуга', 'Всего', 'Завершено', 'Выручка, ₽'],
+      [t('Услуга'), t('Всего'), t('Завершено'), t('Выручка, ₸')],
       ...report.byService.map((service) => [
         service.serviceName,
         service.total,
@@ -270,7 +271,7 @@ export async function render(root, ctx) {
       ]),
     ];
     csvDownload(`medflow-report-${report.from}-${report.to}.csv`, rows);
-    toast('Отчёт выгружен в CSV', 'success');
+    toast(t('Отчёт выгружен в CSV'), 'success');
   });
 
   await load();

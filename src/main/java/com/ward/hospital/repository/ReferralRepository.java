@@ -13,7 +13,7 @@ public interface ReferralRepository extends JpaRepository<Referral, Long> {
 
     @EntityGraph(attributePaths = {
             "patient", "fromDoctor", "fromDoctor.specialization", "toDoctor",
-            "toSpecialization", "appointment"
+            "toDoctor.specialization", "toSpecialization", "appointment", "service"
     })
     @Query("""
             select r from Referral r
@@ -29,16 +29,28 @@ public interface ReferralRepository extends JpaRepository<Referral, Long> {
 
     @EntityGraph(attributePaths = {
             "patient", "fromDoctor", "fromDoctor.specialization", "toDoctor",
-            "toSpecialization", "appointment"
+            "toDoctor.specialization", "toSpecialization", "appointment", "service"
     })
     List<Referral> findByPatientIdOrderByCreatedAtDesc(Long patientId);
 
     @EntityGraph(attributePaths = {
             "patient", "fromDoctor", "fromDoctor.specialization", "toDoctor",
-            "toSpecialization", "appointment"
+            "toDoctor.specialization", "toSpecialization", "appointment", "service"
     })
     @Query("select r from Referral r where r.id = :id")
     java.util.Optional<Referral> findDetailedById(@Param("id") Long id);
+
+    @EntityGraph(attributePaths = {
+            "patient", "fromDoctor", "fromDoctor.specialization", "toDoctor",
+            "toDoctor.specialization", "toSpecialization", "appointment", "service"
+    })
+    List<Referral> findByFromDoctorIdOrderByCreatedAtDesc(Long fromDoctorId);
+
+    @EntityGraph(attributePaths = {
+            "patient", "fromDoctor", "fromDoctor.specialization", "toDoctor",
+            "toDoctor.specialization", "toSpecialization", "appointment", "service"
+    })
+    List<Referral> findByAppointmentIdOrderByCreatedAtAsc(Long appointmentId);
 
     long countByToDoctorIdAndStatus(Long toDoctorId, ReferralStatus status);
 }

@@ -41,7 +41,9 @@ public class PatientController {
         return patientService.findById(id);
     }
 
+    /** Doctors may open a card too, but the registry itself stays with the registration desk. */
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR')")
     public ResponseEntity<PatientResponse> create(@Valid @RequestBody PatientRequest request) {
         PatientResponse created = patientService.create(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()

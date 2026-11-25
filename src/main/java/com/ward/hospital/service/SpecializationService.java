@@ -1,5 +1,6 @@
 package com.ward.hospital.service;
 
+import com.ward.hospital.i18n.I18n;
 import com.ward.hospital.domain.Specialization;
 import com.ward.hospital.dto.specialization.SpecializationRequest;
 import com.ward.hospital.dto.specialization.SpecializationResponse;
@@ -42,6 +43,7 @@ public class SpecializationService {
             throw new ConflictException("Специализация с таким названием уже существует");
         }
         Specialization specialization = new Specialization(name, normalize(request.description()));
+        applyTranslations(specialization, request);
         specialization.setActive(request.active() == null || request.active());
         return toResponse(specializationRepository.save(specialization));
     }
@@ -55,6 +57,7 @@ public class SpecializationService {
         }
         specialization.setName(name);
         specialization.setDescription(normalize(request.description()));
+        applyTranslations(specialization, request);
         if (request.active() != null) {
             specialization.setActive(request.active());
         }
@@ -66,9 +69,14 @@ public class SpecializationService {
         Specialization specialization = getEntity(id);
         long doctorsCount = doctorRepository.countBySpecializationId(id);
         if (doctorsCount > 0) {
-            throw new ConflictException("Нельзя удалить специализацию: к ней привязано врачей — " + doctorsCount);
+            throw new ConflictException(I18n.t("Нельзя удалить специализацию: к ней привязано врачей — {0}", doctorsCount));
         }
         specializationRepository.delete(specialization);
+    }
+
+    private void applyTranslations(Specialization specialization, SpecializationRequest request) {
+        specialization.translate(normalize(request.nameKk()), normalize(request.nameEn()),
+                normalize(request.descriptionKk()), normalize(request.descriptionEn()));
     }
 
     private SpecializationResponse toResponse(Specialization specialization) {

@@ -1,5 +1,11 @@
 package com.ward.hospital.service;
 
+import java.util.stream.Collectors;
+import com.ward.hospital.repository.MedicalServiceRepository;
+import com.ward.hospital.repository.DoctorRepository;
+import com.ward.hospital.domain.MedicalService;
+import com.ward.hospital.domain.Doctor;
+import com.ward.hospital.i18n.I18n;
 import com.ward.hospital.domain.Appointment;
 import com.ward.hospital.domain.AppointmentStatus;
 import com.ward.hospital.dto.report.DailyReportResponse;
@@ -30,9 +36,15 @@ public class ReportService {
     private static final int MAX_RANGE_DAYS = 366;
 
     private final AppointmentRepository appointmentRepository;
+    private final DoctorRepository doctorRepository;
+    private final MedicalServiceRepository medicalServiceRepository;
 
-    public ReportService(AppointmentRepository appointmentRepository) {
+    public ReportService(AppointmentRepository appointmentRepository,
+                         DoctorRepository doctorRepository,
+                         MedicalServiceRepository medicalServiceRepository) {
         this.appointmentRepository = appointmentRepository;
+        this.doctorRepository = doctorRepository;
+        this.medicalServiceRepository = medicalServiceRepository;
     }
 
     public ReportResponse buildReport(LocalDate from, LocalDate to) {
@@ -43,7 +55,7 @@ public class ReportService {
             throw new BusinessRuleException("Дата окончания периода не может быть раньше даты начала");
         }
         if (ChronoUnit.DAYS.between(effectiveFrom, effectiveTo) > MAX_RANGE_DAYS) {
-            throw new BusinessRuleException("Период отчёта не должен превышать " + MAX_RANGE_DAYS + " дней");
+            throw new BusinessRuleException(I18n.t("Период отчёта не должен превышать {0} дней", MAX_RANGE_DAYS));
         }
 
         LocalDateTime fromTime = effectiveFrom.atStartOfDay();
@@ -68,17 +80,23 @@ public class ReportService {
                 effectiveFrom, effectiveTo, total, scheduled, completed, cancelled,
                 uniquePatients, revenue, averageCheck);
 
+        String lang = I18n.lang();
+        Map<Long, String> specializations = doctorRepository.search(null, null).stream()
+                .collect(Collectors.toMap(Doctor::getId, doctor -> doctor.getSpecialization().name(lang)));
+        Map<Long, String> services = medicalServiceRepository.findAll().stream()
+                .collect(Collectors.toMap(MedicalService::getId, service -> service.name(lang)));
+
         List<DoctorReportResponse> byDoctor = appointmentRepository
                 .reportByDoctor(fromTime, toTime, AppointmentStatus.COMPLETED,
                         AppointmentStatus.CANCELLED, AppointmentStatus.SCHEDULED)
                 .stream()
-                .map(this::mapDoctor)
+                .map(item -> mapDoctor(item, specializations))
                 .toList();
 
         List<ServiceReportResponse> byService = appointmentRepository
                 .reportByService(fromTime, toTime, AppointmentStatus.COMPLETED)
                 .stream()
-                .map(this::mapService)
+                .map(item -> mapService(item, services))
                 .toList();
 
         List<DailyReportResponse> daily = buildDaily(fromTime, toTime, effectiveFrom, effectiveTo);
@@ -103,11 +121,11 @@ public class ReportService {
                 .toList();
     }
 
-    private DoctorReportResponse mapDoctor(DoctorReportProjection projection) {
+    private DoctorReportResponse mapDoctor(DoctorReportProjection projection, Map<Long, String> specializations) {
         return new DoctorReportResponse(
                 projection.getDoctorId(),
                 projection.getDoctorName(),
-                projection.getSpecialization(),
+                specializations.getOrDefault(projection.getDoctorId(), projection.getSpecialization()),
                 longValue(projection.getTotal()),
                 longValue(projection.getCompleted()),
                 longValue(projection.getCancelled()),
@@ -116,10 +134,10 @@ public class ReportService {
         );
     }
 
-    private ServiceReportResponse mapService(ServiceReportProjection projection) {
+    private ServiceReportResponse mapService(ServiceReportProjection projection, Map<Long, String> services) {
         return new ServiceReportResponse(
                 projection.getServiceId(),
-                projection.getServiceName(),
+                services.getOrDefault(projection.getServiceId(), projection.getServiceName()),
                 longValue(projection.getTotal()),
                 longValue(projection.getCompleted()),
                 projection.getRevenue() == null ? BigDecimal.ZERO : projection.getRevenue()

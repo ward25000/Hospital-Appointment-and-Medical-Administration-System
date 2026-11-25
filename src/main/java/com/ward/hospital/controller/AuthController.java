@@ -1,5 +1,7 @@
 package com.ward.hospital.controller;
 
+import com.ward.hospital.dto.auth.IinLookupResponse;
+import com.ward.hospital.dto.auth.IinLookupRequest;
 import com.ward.hospital.dto.auth.CsrfResponse;
 import com.ward.hospital.dto.auth.LoginRequest;
 import com.ward.hospital.dto.auth.RegistrationRequest;
@@ -68,6 +70,11 @@ public class AuthController {
                 principal, null, principal.getAuthorities());
         saveAuthentication(authentication, httpRequest, httpResponse);
         return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(principal));
+    }
+
+    @PostMapping("/iin")
+    public IinLookupResponse lookupIin(@Valid @RequestBody IinLookupRequest request) {
+        return registrationService.lookup(request.iin());
     }
 
     @GetMapping("/me")

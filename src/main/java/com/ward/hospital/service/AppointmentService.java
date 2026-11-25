@@ -1,5 +1,10 @@
 package com.ward.hospital.service;
 
+import com.ward.hospital.repository.ReferralRepository;
+import com.ward.hospital.pdf.CertificatePdf;
+import com.ward.hospital.dto.referral.ReferralResponse;
+import com.ward.hospital.dto.appointment.CompleteRequest;
+import com.ward.hospital.i18n.I18n;
 import com.ward.hospital.domain.Appointment;
 import com.ward.hospital.domain.AppointmentStatus;
 import com.ward.hospital.domain.Doctor;
@@ -46,19 +51,25 @@ public class AppointmentService {
     private final PatientRepository patientRepository;
     private final MedicalServiceRepository medicalServiceRepository;
     private final UserRepository userRepository;
+    private final ReferralRepository referralRepository;
+    private final CertificatePdf certificatePdf;
 
     public AppointmentService(AppointmentRepository appointmentRepository,
                               DoctorRepository doctorRepository,
                               DoctorScheduleRepository scheduleRepository,
                               PatientRepository patientRepository,
                               MedicalServiceRepository medicalServiceRepository,
-                              UserRepository userRepository) {
+                              UserRepository userRepository,
+                              ReferralRepository referralRepository,
+                              CertificatePdf certificatePdf) {
         this.appointmentRepository = appointmentRepository;
         this.doctorRepository = doctorRepository;
         this.scheduleRepository = scheduleRepository;
         this.patientRepository = patientRepository;
         this.medicalServiceRepository = medicalServiceRepository;
         this.userRepository = userRepository;
+        this.referralRepository = referralRepository;
+        this.certificatePdf = certificatePdf;
     }
 
     public List<AppointmentResponse> findAll(LocalDate from, LocalDate to, Long doctorId,
@@ -70,7 +81,7 @@ public class AppointmentService {
             throw new BusinessRuleException("Дата окончания периода не может быть раньше даты начала");
         }
         if (ChronoUnit.DAYS.between(effectiveFrom, effectiveTo) > MAX_RANGE_DAYS) {
-            throw new BusinessRuleException("Период не должен превышать " + MAX_RANGE_DAYS + " дней");
+            throw new BusinessRuleException(I18n.t("Период не должен превышать {0} дней", MAX_RANGE_DAYS));
         }
 
         Long effectiveDoctorId = doctorId;
@@ -178,7 +189,7 @@ public class AppointmentService {
     }
 
     @Transactional
-    public AppointmentResponse complete(Long id, UserPrincipal actor) {
+    public AppointmentResponse complete(Long id, CompleteRequest request, UserPrincipal actor) {
         Appointment appointment = getDetailed(id);
         if (appointment.getStatus() != AppointmentStatus.SCHEDULED) {
             throw new ConflictException("Завершить можно только запланированный приём");
@@ -191,6 +202,12 @@ public class AppointmentService {
         if (appointment.getStartTime().isAfter(LocalDateTime.now())) {
             throw new BusinessRuleException("Нельзя завершить приём до его начала");
         }
+        if (normalize(request.diagnosis()) == null || normalize(request.conclusion()) == null) {
+            throw new BusinessRuleException("Укажите диагноз и заключение врача");
+        }
+        appointment.setDiagnosis(normalize(request.diagnosis()));
+        appointment.setConclusion(normalize(request.conclusion()));
+        appointment.setRecommendations(normalize(request.recommendations()));
         appointment.setStatus(AppointmentStatus.COMPLETED);
         appointment.setCompletedAt(LocalDateTime.now());
         return AppointmentResponse.from(appointment);
@@ -229,6 +246,24 @@ public class AppointmentService {
         return AppointmentResponse.from(appointment);
     }
 
+    /** Certificate of a completed visit in the language of the interface. */
+    public byte[] certificate(Long id, UserPrincipal actor) {
+        Appointment appointment = getDetailed(id);
+        checkViewAccess(appointment, actor);
+        if (appointment.getStatus() != AppointmentStatus.COMPLETED) {
+            throw new BusinessRuleException("Справка доступна только для завершённого приёма");
+        }
+        return certificatePdf.render(appointment,
+                referralRepository.findByAppointmentIdOrderByCreatedAtAsc(id), I18n.lang());
+    }
+
+    public List<ReferralResponse> findReferrals(Long id, UserPrincipal actor) {
+        checkViewAccess(getDetailed(id), actor);
+        return referralRepository.findByAppointmentIdOrderByCreatedAtAsc(id).stream()
+                .map(ReferralResponse::from)
+                .toList();
+    }
+
     private LocalDateTime validateBooking(Doctor doctor, MedicalService service,
                                           LocalDateTime start, Long excludeAppointmentId) {
         if (!start.isAfter(LocalDateTime.now())) {
@@ -248,8 +283,8 @@ public class AppointmentService {
 
         long offsetMinutes = Duration.between(schedule.getStartTime(), start.toLocalTime()).toMinutes();
         if (offsetMinutes % schedule.getSlotMinutes() != 0) {
-            throw new BusinessRuleException("Время приёма должно быть кратно интервалу "
-                    + schedule.getSlotMinutes() + " минут");
+            throw new BusinessRuleException(I18n.t("Время приёма должно быть кратно интервалу {0} минут",
+                    schedule.getSlotMinutes()));
         }
 
         long conflicts = appointmentRepository.countOverlapping(

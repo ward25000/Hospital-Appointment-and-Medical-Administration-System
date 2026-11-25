@@ -1,3 +1,5 @@
+import { t, plural, getLang } from './i18n.js';
+
 const ICONS = {
   dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.6"/><rect x="14" y="3" width="7" height="5" rx="1.6"/><rect x="14" y="12" width="7" height="9" rx="1.6"/><rect x="3" y="16" width="7" height="5" rx="1.6"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M16 3v4M8 3v4M3 11h18"/><path d="M8 15h.01M12 15h.01M16 15h.01"/>',
@@ -69,16 +71,27 @@ export function esc(value) {
     .replaceAll("'", '&#39;');
 }
 
-const MONTHS_GENITIVE = [
-  'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
-];
-const MONTHS_NOMINATIVE = [
-  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
-];
-export const WEEKDAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-export const WEEKDAYS_FULL = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+const MONTHS_GENITIVE = {
+  ru: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'],
+  kk: ['қаңтар', 'ақпан', 'наурыз', 'сәуір', 'мамыр', 'маусым', 'шілде', 'тамыз', 'қыркүйек', 'қазан', 'қараша', 'желтоқсан'],
+  en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+};
+const MONTHS_NOMINATIVE = {
+  ru: ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'],
+  kk: ['Қаңтар', 'Ақпан', 'Наурыз', 'Сәуір', 'Мамыр', 'Маусым', 'Шілде', 'Тамыз', 'Қыркүйек', 'Қазан', 'Қараша', 'Желтоқсан'],
+  en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+};
+const WEEKDAYS_SHORT = {
+  ru: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+  kk: ['Дс', 'Сс', 'Ср', 'Бс', 'Жм', 'Сн', 'Жс'],
+  en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+};
+const WEEKDAYS_FULL = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+
+export function weekdaysShort() {
+  return WEEKDAYS_SHORT[getLang()];
+}
+
 export const WEEKDAYS_API = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
 export function parseISODate(value) {
@@ -126,7 +139,10 @@ export function formatDateLong(value) {
   if (!date) {
     return '—';
   }
-  return `${date.getDate()} ${MONTHS_GENITIVE[date.getMonth()]} ${date.getFullYear()}`;
+  const month = MONTHS_GENITIVE[getLang()][date.getMonth()];
+  return getLang() === 'kk'
+    ? `${date.getFullYear()} ж. ${date.getDate()} ${month}`
+    : `${date.getDate()} ${month} ${date.getFullYear()}`;
 }
 
 export function formatDateShort(value) {
@@ -134,7 +150,7 @@ export function formatDateShort(value) {
   if (!date) {
     return '—';
   }
-  return `${date.getDate()} ${MONTHS_GENITIVE[date.getMonth()].slice(0, 3)}`;
+  return `${date.getDate()} ${MONTHS_GENITIVE[getLang()][date.getMonth()].slice(0, 3)}`;
 }
 
 export function formatTime(value) {
@@ -157,7 +173,7 @@ export function formatDateTime(value) {
   }
   const text = String(value);
   if (text.includes('T')) {
-    return `${formatDate(text)} · ${text.slice(11, 16)}`;
+    return `${formatDate(text)}, ${text.slice(11, 16)}`;
   }
   return formatDate(text);
 }
@@ -169,40 +185,23 @@ export function weekdayIndex(value) {
 
 export function weekdayName(value, short = false) {
   const index = weekdayIndex(value);
-  return (short ? WEEKDAYS_SHORT : WEEKDAYS_FULL)[index];
+  return short ? weekdaysShort()[index] : t(WEEKDAYS_FULL[index]);
 }
 
 export function monthTitle(year, monthIndex) {
-  return `${MONTHS_NOMINATIVE[monthIndex]} ${year}`;
-}
-
-export function monthGenitive(monthIndex) {
-  return MONTHS_GENITIVE[monthIndex];
+  return `${MONTHS_NOMINATIVE[getLang()][monthIndex]} ${year}`;
 }
 
 export function formatMoney(value) {
   const number = Number(value ?? 0);
-  return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(number)} ₽`;
+  return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(number)} ₸`;
 }
 
 export function formatNumber(value) {
   return new Intl.NumberFormat('ru-RU').format(Number(value ?? 0));
 }
 
-export function pluralRu(count, forms) {
-  const number = Math.abs(Number(count) || 0) % 100;
-  const last = number % 10;
-  if (number > 10 && number < 20) {
-    return forms[2];
-  }
-  if (last > 1 && last < 5) {
-    return forms[1];
-  }
-  if (last === 1) {
-    return forms[0];
-  }
-  return forms[2];
-}
+export const pluralRu = plural;
 
 export function initials(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
@@ -225,8 +224,8 @@ export function avatar(name, extraClass = '') {
 }
 
 export const STATUS_LABELS = {
-  SCHEDULED: 'Ожидает',
-  COMPLETED: 'Приём проведён',
+  SCHEDULED: 'Запланирован',
+  COMPLETED: 'Прошел',
   CANCELLED: 'Отменён',
   NO_SHOW: 'Не явился',
 };
@@ -238,14 +237,60 @@ export const STATUS_CLASSES = {
   NO_SHOW: 'status-noshow',
 };
 
-export function statusBadge(status, label) {
-  const className = STATUS_CLASSES[status] || 'badge-neutral';
-  return `<span class="badge ${className} badge-dot">${esc(label || STATUS_LABELS[status] || status)}</span>`;
+export function paymentBadge(status) {
+  return `<span class="badge ${status === 'PAID' ? 'status-completed' : 'status-unpaid'}">${t(status === 'PAID' ? 'Оплачено' : 'Не оплачено')}</span>`;
 }
 
-export function statusChip(status, label) {
+const EMAIL_STATUS_LABELS = {
+  PENDING: 'Отправляется',
+  SENT: 'Отправлена на почту',
+  SAVED: 'Сохранена на сервере (почта не настроена)',
+  FAILED: 'Не удалось отправить',
+  NO_EMAIL: 'Email не указан',
+};
+
+export function emailStatusText(status) {
+  const tone = status === 'SENT' ? 'text-success' : status === 'FAILED' ? 'text-danger' : 'muted';
+  return `<span class="${tone}" style="font-size:13.5px">${t(EMAIL_STATUS_LABELS[status] || status)}</span>`;
+}
+
+/** Structured address inputs shared by the profile and the registration desk. */
+export function addressFields(id, value = {}) {
+  const field = (name, label, max) => `
+    <div class="field"><label for="${id}-${name}">${label}</label>
+      <input class="input" id="${id}-${name}" name="${name}" maxlength="${max}" value="${esc(value?.[name] || '')}"></div>`;
+  return `<div class="form-grid-4">
+    ${field('city', t('Город, населённый пункт *'), 100)}
+    ${field('street', t('Улица *'), 120)}
+    ${field('house', t('Дом *'), 20)}
+    ${field('apartment', t('Квартира'), 20)}
+  </div>`;
+}
+
+export function readAddress(form) {
+  return {
+    city: formValue(form, 'city') || null,
+    street: formValue(form, 'street') || null,
+    house: formValue(form, 'house') || null,
+    apartment: formValue(form, 'apartment') || null,
+  };
+}
+
+/** Birth date and gender encoded in the IIN: YYMMDD, then the century and the sex. */
+export function parseIin(iin) {
+  if (!/^\d{12}$/.test(iin)) return null;
+  const code = Number(iin[6]);
+  if (code < 1 || code > 6) return null;
+  const century = 1800 + Math.floor((code - 1) / 2) * 100;
+  const iso = `${century + Number(iin.slice(0, 2))}-${iin.slice(2, 4)}-${iin.slice(4, 6)}`;
+  const date = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(date.getTime()) || toISODate(date) !== iso) return null;
+  return { birthDate: iso, gender: code % 2 === 1 ? 'MALE' : 'FEMALE' };
+}
+
+export function statusBadge(status) {
   const className = STATUS_CLASSES[status] || 'badge-neutral';
-  return `<span class="calendar-chip ${className}">${esc(label || STATUS_LABELS[status] || status)}</span>`;
+  return `<span class="badge ${className}">${esc(t(STATUS_LABELS[status] || status))}</span>`;
 }
 
 export const REFERRAL_STATUS_LABELS = {
@@ -262,33 +307,33 @@ export const REFERRAL_STATUS_CLASSES = {
   CANCELLED: 'status-cancelled',
 };
 
-export function referralStatusBadge(status, label) {
+export function referralStatusBadge(status) {
   const className = REFERRAL_STATUS_CLASSES[status] || 'badge-neutral';
-  return `<span class="badge ${className} badge-dot">${esc(label || REFERRAL_STATUS_LABELS[status] || status)}</span>`;
+  return `<span class="badge ${className}">${esc(t(REFERRAL_STATUS_LABELS[status] || status))}</span>`;
 }
 
 export function roleLabel(role) {
   return {
-    ADMIN: 'Администратор',
-    DOCTOR: 'Врач',
-    RECEPTIONIST: 'Регистратор',
-    PATIENT: 'Пациент',
+    ADMIN: t('Администратор'),
+    DOCTOR: t('Врач'),
+    RECEPTIONIST: t('Регистратор'),
+    PATIENT: t('Пациент'),
   }[role] || role;
 }
 
 export function genderLabel(gender) {
-  return { MALE: 'Мужской', FEMALE: 'Женский' }[gender] || '—';
+  return { MALE: t('Мужской'), FEMALE: t('Женский') }[gender] || '—';
 }
 
 export function dayOfWeekLabel(day) {
   return {
-    MONDAY: 'Понедельник',
-    TUESDAY: 'Вторник',
-    WEDNESDAY: 'Среда',
-    THURSDAY: 'Четверг',
-    FRIDAY: 'Пятница',
-    SATURDAY: 'Суббота',
-    SUNDAY: 'Воскресенье',
+    MONDAY: t('Понедельник'),
+    TUESDAY: t('Вторник'),
+    WEDNESDAY: t('Среда'),
+    THURSDAY: t('Четверг'),
+    FRIDAY: t('Пятница'),
+    SATURDAY: t('Суббота'),
+    SUNDAY: t('Воскресенье'),
   }[day] || day;
 }
 
@@ -308,7 +353,7 @@ export function toast(message, type = 'success', title = null) {
     return;
   }
   const iconName = type === 'error' ? 'alert-circle' : type === 'info' ? 'info' : 'check-circle';
-  const heading = title || (type === 'error' ? 'Ошибка' : type === 'info' ? 'Информация' : 'Готово');
+  const heading = title || (type === 'error' ? t('Ошибка') : type === 'info' ? t('Информация') : t('Готово'));
   const element = document.createElement('div');
   toastCounter += 1;
   element.className = `toast toast-${type}`;
@@ -319,7 +364,7 @@ export function toast(message, type = 'success', title = null) {
       <strong>${esc(heading)}</strong>
       <span>${esc(message)}</span>
     </div>
-    <button class="toast-close" type="button" aria-label="Закрыть уведомление">${icon('x')}</button>
+    <button class="toast-close" type="button" aria-label="${t('Закрыть уведомление')}">${icon('x')}</button>
   `;
   const remove = () => {
     if (!element.isConnected) {
@@ -366,6 +411,7 @@ export function openModal({
   onClose = null,
 }) {
   bindModalKeyboard();
+  const openedIn = getLang();
   const previouslyFocused = document.activeElement;
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -377,7 +423,7 @@ export function openModal({
           <h3>${esc(title)}</h3>
           ${subtitle ? `<p>${esc(subtitle)}</p>` : ''}
         </div>
-        <button type="button" class="icon-btn modal-close" aria-label="Закрыть">${icon('x')}</button>
+        <button type="button" class="icon-btn modal-close" aria-label="${t('Закрыть')}">${icon('x')}</button>
       </div>
       <div class="modal-body"></div>
       ${footer ? '<div class="modal-foot"></div>' : ''}
@@ -421,6 +467,9 @@ export function openModal({
       if (typeof onClose === 'function') {
         onClose();
       }
+      if (openedIn !== getLang()) {
+        window.dispatchEvent(new Event('app:route'));
+      }
     },
   };
 
@@ -454,8 +503,8 @@ export function openModal({
 export function confirmDialog({
   title,
   message,
-  confirmText = 'Подтвердить',
-  cancelText = 'Отмена',
+  confirmText = t('Подтвердить'),
+  cancelText = t('Отмена'),
   danger = true,
   iconName = 'alert-circle',
 }) {
@@ -501,7 +550,7 @@ export function emptyState({ iconName = 'search', title, text = '', action = '' 
   `;
 }
 
-export function loadingState(text = 'Загружаем данные…') {
+export function loadingState(text = t('Загружаем данные…')) {
   return `<div class="page-loading"><span class="spinner"></span><span>${esc(text)}</span></div>`;
 }
 
@@ -524,15 +573,15 @@ export function errorState(message, { retry = true } = {}) {
     <div class="card">
       ${emptyState({
         iconName: 'alert-circle',
-        title: 'Не удалось загрузить данные',
+        title: t('Не удалось загрузить данные'),
         text: message,
-        action: retry ? `<button type="button" class="btn btn-secondary btn-sm" data-retry>${icon('refresh')}<span>Повторить</span></button>` : '',
+        action: retry ? `<button type="button" class="btn btn-secondary btn-sm" data-retry>${icon('refresh')}<span>${t('Повторить')}</span></button>` : '',
       })}
     </div>
   `;
 }
 
-export function setButtonLoading(button, loading, text = 'Подождите…') {
+export function setButtonLoading(button, loading, text = t('Подождите…')) {
   if (!button) {
     return;
   }
@@ -577,7 +626,7 @@ export function applyFieldErrors(form, fieldErrors) {
     return;
   }
   Object.entries(fieldErrors).forEach(([field, message]) => {
-    const input = form.elements.namedItem(field);
+    const input = form.elements.namedItem(field === 'addressProvided' ? 'city' : field);
     if (!input) {
       return;
     }

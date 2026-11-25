@@ -1,6 +1,8 @@
 package com.ward.hospital.dto.patient;
 
 import com.ward.hospital.domain.Gender;
+import com.ward.hospital.util.Address;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -23,6 +25,9 @@ public record PatientRequest(
         @Size(max = 80, message = "Фамилия не должна превышать 80 символов")
         String lastName,
 
+        @Size(max = 80, message = "Отчество не должно превышать 80 символов")
+        String middleName,
+
         @NotNull(message = "Укажите дату рождения")
         @Past(message = "Дата рождения должна быть в прошлом")
         LocalDate birthDate,
@@ -38,8 +43,28 @@ public record PatientRequest(
         @Size(max = 160, message = "Email слишком длинный")
         String email,
 
-        @NotBlank(message = "Укажите адрес проживания")
         @Size(max = 300, message = "Адрес не должен превышать 300 символов")
-        String address
+        String address,
+
+        @Size(max = 100, message = "Адрес не должен превышать 300 символов")
+        String city,
+
+        @Size(max = 120, message = "Адрес не должен превышать 300 символов")
+        String street,
+
+        @Size(max = 20, message = "Адрес не должен превышать 300 символов")
+        String house,
+
+        @Size(max = 20, message = "Адрес не должен превышать 300 символов")
+        String apartment
 ) {
+
+    @AssertTrue(message = "Укажите адрес проживания: город, улицу и дом")
+    public boolean isAddressProvided() {
+        return structuredAddress().isComplete() || (address != null && !address.isBlank());
+    }
+
+    public Address structuredAddress() {
+        return Address.of(city, street, house, apartment);
+    }
 }

@@ -1,5 +1,6 @@
 package com.ward.hospital.exception;
 
+import com.ward.hospital.i18n.I18n;
 import com.ward.hospital.dto.common.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -12,10 +13,12 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.Instant;
@@ -30,6 +33,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(NotFoundException ex, HttpServletRequest request) {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiError> handleNoResource(NoResourceFoundException ex, HttpServletRequest request) {
+        return build(HttpStatus.NOT_FOUND, "Страница не найдена", request, null);
     }
 
     @ExceptionHandler(ConflictException.class)
@@ -53,7 +61,7 @@ public class GlobalExceptionHandler {
                                                      HttpServletRequest request) {
         Map<String, String> fieldErrors = new LinkedHashMap<>();
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
-            fieldErrors.putIfAbsent(error.getField(), error.getDefaultMessage());
+            fieldErrors.putIfAbsent(error.getField(), I18n.t(error.getDefaultMessage()));
         }
         return build(HttpStatus.BAD_REQUEST, "Проверьте заполнение формы", request, fieldErrors);
     }
@@ -63,7 +71,7 @@ public class GlobalExceptionHandler {
                                                               HttpServletRequest request) {
         Map<String, String> fieldErrors = new LinkedHashMap<>();
         ex.getConstraintViolations().forEach(violation ->
-                fieldErrors.putIfAbsent(violation.getPropertyPath().toString(), violation.getMessage()));
+                fieldErrors.putIfAbsent(violation.getPropertyPath().toString(), I18n.t(violation.getMessage())));
         return build(HttpStatus.BAD_REQUEST, "Некорректные параметры запроса", request, fieldErrors);
     }
 
@@ -74,6 +82,12 @@ public class GlobalExceptionHandler {
     })
     public ResponseEntity<ApiError> handleBadRequest(Exception ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, "Некорректный формат запроса", request, null);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMediaType(HttpMediaTypeNotSupportedException ex,
+                                                    HttpServletRequest request) {
+        return build(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Некорректный формат запроса", request, null);
     }
 
     @ExceptionHandler(AuthenticationException.class)
@@ -109,7 +123,7 @@ public class GlobalExceptionHandler {
                 Instant.now(),
                 status.value(),
                 status.getReasonPhrase(),
-                message,
+                I18n.t(message),
                 request.getRequestURI(),
                 fieldErrors
         );

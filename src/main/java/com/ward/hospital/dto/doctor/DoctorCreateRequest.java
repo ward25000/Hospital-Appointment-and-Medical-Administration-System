@@ -15,6 +15,9 @@ public record DoctorCreateRequest(
         @Size(max = 80, message = "Фамилия не должна превышать 80 символов")
         String lastName,
 
+        @Size(max = 80, message = "Отчество не должно превышать 80 символов")
+        String middleName,
+
         @NotNull(message = "Выберите специализацию")
         Long specializationId,
 
@@ -33,6 +36,12 @@ public record DoctorCreateRequest(
 
         @Size(max = 1000, message = "Описание не должно превышать 1000 символов")
         String bio,
+
+        @Size(max = 1000, message = "Описание не должно превышать 1000 символов")
+        String bioKk,
+
+        @Size(max = 1000, message = "Описание не должно превышать 1000 символов")
+        String bioEn,
 
         @NotBlank(message = "Укажите логин")
         @Pattern(regexp = "^[a-zA-Z0-9._-]{4,60}$",
